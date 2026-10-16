@@ -1,6 +1,6 @@
 import { z } from "zod";
 import type { Repositories } from "./ports";
-import type { Actor, DocumentFile, Workspace, Identity, PromotionCall, Experience } from "../domain/models";
+import type { Actor, DocumentFile, Workspace, Identity, PromotionCall, Experience, Rubric } from "../domain/models";
 import { catalog, nextCategory, demoUsers } from "../domain/models";
 import { evaluate } from "../domain/evaluation";
 import { ranking, rankingPending } from "../domain/promotion";
@@ -23,6 +23,33 @@ export const meritSchema = z.object({
 });
 export type TeacherInput = z.infer<typeof teacherSchema>;
 export type MeritInput = z.infer<typeof meritSchema>;
+/** RF10 / CUS06 · Rúbrica versionada: criterios, topes, requisitos por categoría destino y fuente por criterio. */
+const rubricLevelSchema = z.object({
+  degree: z.enum(["maestria", "doctorado"]),
+  years: z.number().int().min(0, "Los años exigidos no pueden ser negativos.").max(60, "Revisa los años exigidos."),
+  research: z.number().int().min(0, "Las investigaciones exigidas no pueden ser negativas.").max(50, "Revisa las investigaciones exigidas."),
+  ratification: z.boolean()
+});
+export const rubricSchema = z.object({
+  version: z.string().trim().min(3, "Indica una versión de al menos 3 caracteres.").max(40, "La versión es demasiado larga.")
+    .regex(/^[A-Za-z0-9._-]+$/, "Usa solo letras, números, punto, guion o guion bajo."),
+  name: z.string().trim().min(5, "Describe la rúbrica."),
+  estadoFuente: z.enum(["simulacion", "oficial"]),
+  fuenteNormativa: z.string().trim().max(160, "La fuente de referencia es demasiado larga.").optional(),
+  threshold: z.number({ invalid_type_error: "El umbral debe ser un número." }).int("El umbral debe ser un número entero.").min(0, "El umbral no puede ser negativo.").max(100, "El umbral no puede superar 100."),
+  degrees: z.object({ maestria: z.number().min(0).max(100), doctorado: z.number().min(0).max(100) }),
+  experience: z.object({ perYear: z.number().min(0).max(100), max: z.number().min(0).max(100) }),
+  research: z.object({ unit: z.number().min(0).max(100), max: z.number().min(0).max(100) }),
+  talks: z.object({ unit: z.number().min(0).max(100), max: z.number().min(0).max(100) }),
+  attendance: z.object({ unit: z.number().min(0).max(100), max: z.number().min(0).max(100) }),
+  requirements: z.object({ Asociado: rubricLevelSchema, Principal: rubricLevelSchema })
+});
+export type RubricInput = z.infer<typeof rubricSchema>;
+function rubricSources(input: RubricInput): NonNullable<Rubric["sources"]> {
+  const reference = input.fuenteNormativa?.trim() || "Supuesto didáctico de simulación; sin validación normativa.";
+  return ["Grado académico", "Tiempo en categoría", "Investigaciones", "Ponencias", "Participaciones", "Requisitos", "Umbral"]
+    .map(criterion => ({ criterion, reference, status: input.estadoFuente }));
+}
 type Seed = () => {
   data: Workspace;
   documents: DocumentFile[];
@@ -67,6 +94,7 @@ export class LegajoService {
       evaluations: data.evaluations.filter(e => e.teacherId === actor.teacherId),
       reviews: data.reviews.filter(e => e.teacherId === actor.teacherId),
       experiences: data.experiences.filter(e => e.teacherId === actor.teacherId),
+      rubrics: (data.rubrics ?? [data.rubric]).filter(r => r.aprobadaEn),
       proposals: data.proposals.filter(e => e.teacherId === actor.teacherId).map(p => ({
         ...p, rankingSnapshot: p.rankingSnapshot.filter(r => r.teacherId === actor.teacherId)
       })),
@@ -81,11 +109,11 @@ export class LegajoService {
     const before = structuredClone(data);
     fn(data);
     const changes: NonNullable<Workspace["audit"][number]["changes"]> = [];
-    for (const collection of ["teachers", "merits", "requests", "evaluations", "calls", "experiences", "proposals", "reviews"] as const) {
-      for (const record of data[collection]) {
-        const old = before[collection].find(r => r.id === record.id);
+    for (const collection of ["teachers", "merits", "requests", "evaluations", "calls", "experiences", "proposals", "reviews", "rubrics"] as const) {
+      for (const record of data[collection] ?? []) {
+        const old = (before[collection] ?? []).find(r => r.id === record.id);
         if (JSON.stringify(old) !== JSON.stringify(record)) changes.push({
-          collection, recordId: record.id, before: old, after: structuredClone(record)
+          collection, recordId: record.id ?? "sin-id", before: old, after: structuredClone(record)
         });
       }
     }
@@ -307,7 +335,60 @@ export class LegajoService {
     });
     return evaluationId;
   }
-  async saveCall(actor: Actor, input: Pick<PromotionCall, "name" | "startsOn" | "endsOn" | "vacancyIds">, id?: string) {
+  /** RF10 / CUS06 · Normaliza el catálogo de rúbricas y conserva la versión vigente en datos heredados. */
+  private rubricsOf(data: Workspace): Rubric[] {
+    if (!data.rubrics?.length) {
+      data.rubrics = [{
+        ...structuredClone(data.rubric),
+        id: data.rubric.id ?? "rub-vigente",
+        estadoFuente: data.rubric.estadoFuente ?? "simulacion"
+      }];
+    }
+    return data.rubrics;
+  }
+  async saveRubric(actor: Actor, input: RubricInput, id?: string) {
+    ensure(actor.role === "legajos", "Solo personal de legajos puede gestionar rúbricas.");
+    const parsed = rubricSchema.parse(input);
+    const totalMax = parsed.degrees.doctorado + parsed.experience.max + parsed.research.max + parsed.talks.max + parsed.attendance.max;
+    ensure(totalMax <= 100, "La suma de topes no puede superar 100 puntos.");
+    ensure(parsed.threshold <= totalMax, "El umbral no puede superar la suma de topes de la rúbrica.");
+    ensure(parsed.degrees.doctorado >= parsed.degrees.maestria, "El doctorado no puede otorgar menos puntos que la maestría.");
+    const resultId = id ?? this.uid();
+    await this.change(actor, undefined, id ? "Rúbrica de borrador actualizada." : "Nueva versión de rúbrica creada como borrador.", d => {
+      const rubrics = this.rubricsOf(d);
+      const existing = id ? rubrics.find(r => r.id === id) : undefined;
+      if (id) ensure(existing, "Rúbrica no encontrada.");
+      ensure(!rubrics.some(r => r.id !== id && r.version.toLowerCase() === parsed.version.toLowerCase()), "Ya existe una rúbrica con esa versión.");
+      if (existing) ensure(!existing.aprobadaEn, "Una rúbrica aprobada no se modifica: crea una nueva versión (RN09).");
+      const at = this.now();
+      const record: Rubric = {
+        ...parsed,
+        id: resultId,
+        fuenteNormativa: parsed.fuenteNormativa?.trim() || undefined,
+        sources: rubricSources(parsed),
+        createdAt: existing?.createdAt ?? at,
+        updatedAt: at
+      };
+      if (existing) Object.assign(existing, record);
+      else rubrics.unshift(record);
+    });
+    return resultId;
+  }
+  async approveRubric(actor: Actor, id: string) {
+    ensure(actor.role === "legajos", "Solo personal de legajos puede aprobar rúbricas.");
+    await this.change(actor, undefined, "Rúbrica aprobada y fijada como regla vigente.", d => {
+      const rubrics = this.rubricsOf(d);
+      const rubric = rubrics.find(r => r.id === id);
+      ensure(rubric, "Rúbrica no encontrada.");
+      ensure(!rubric.aprobadaEn, "La rúbrica ya está aprobada.");
+      const at = this.now();
+      rubric.aprobadaEn = at;
+      rubric.aprobadaPor = this.identity(actor, d).id;
+      rubric.updatedAt = at;
+      d.rubric = structuredClone(rubric);
+    });
+  }
+  async saveCall(actor: Actor, input: Pick<PromotionCall, "name" | "startsOn" | "endsOn" | "vacancyIds"> & { rubricId?: string }, id?: string) {
     ensure(actor.role === "legajos", "Solo personal de legajos puede gestionar convocatorias.");
     ensure(input.name.trim().length >= 5, "Escribe el nombre de la convocatoria.");
     ensure(realDate(input.startsOn) && realDate(input.endsOn) && input.startsOn <= input.endsOn, "El periodo de la convocatoria no es válido.");
@@ -318,9 +399,14 @@ export class LegajoService {
       if (id) {
         const call = d.calls.find(c => c.id === id);
         ensure(call && call.status === "abierta" && !d.requests.some(r => r.callId === id), "No se modifica una convocatoria que ya tiene solicitudes.");
-        Object.assign(call, structuredClone(input), { name: input.name.trim() });
-      } else d.calls.push({ ...structuredClone(input), name: input.name.trim(), id: resultId,
-        status: "abierta", rubric: structuredClone(d.rubric), createdAt: this.now() });
+      }
+      const rubrics = this.rubricsOf(d);
+      const rubric = input.rubricId ? rubrics.find(r => r.id === input.rubricId) : d.rubric;
+      ensure(rubric, "Selecciona una rúbrica válida.");
+      ensure(rubric.aprobadaEn, "La convocatoria requiere una rúbrica aprobada. Aprueba la versión antes de aplicarla (RN09).");
+      const patch = { name: input.name.trim(), startsOn: input.startsOn, endsOn: input.endsOn, vacancyIds: [...input.vacancyIds], rubric: structuredClone(rubric) };
+      if (id) Object.assign(d.calls.find(c => c.id === id)!, patch);
+      else d.calls.push({ ...patch, id: resultId, status: "abierta", createdAt: this.now() });
     });
     return resultId;
   }

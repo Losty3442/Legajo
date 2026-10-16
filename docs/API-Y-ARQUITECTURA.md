@@ -95,6 +95,13 @@ No sobrescribir archivos que respalden evaluaciones. Definir política de retenc
 
 El esquema relacional, la normalización y las migraciones se definirán en la etapa de diseño de persistencia. La estructura de IndexedDB no debe copiarse literalmente como una tabla única en producción.
 
+> [!NOTE]
+> El modelado de la persistencia **ya está disponible** y no altera el prototipo: `db/schema.ts`
+> contiene el esquema Drizzle de las 35 tablas y `drizzle/0000_legajo_promocion_unp.sql` el DDL
+> completo (tablas, índices, triggers y catálogos) del anexo B del Análisis del Sistema v2.0.
+> Aplicarlo es un paso de configuración cuando se conecte la base; hoy `getDb()` no se invoca y el
+> prototipo sigue con IndexedDB. Detalle en [PLAN-ALINEACION-ANALISIS-V2.md](PLAN-ALINEACION-ANALISIS-V2.md).
+
 ## Nuevos contratos del dominio
 
 PromotionCall conserva periodo, estado, vacancyIds y rúbrica completa. ApplicationRequest exige callId. La rúbrica incluye requisitos por categoría y fuentes por criterio; Evaluation incorpora callSnapshot.

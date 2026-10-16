@@ -1,14 +1,15 @@
-import { DEMO_RUBRIC, type Workspace } from "../domain/models";
+import { approvedDemoRubric, type Workspace } from "../domain/models";
 
 /** Preserve closed evaluations and blobs byte-for-byte; missing historical identities stay unknown. */
 export function migrateWorkspace(previous: Workspace, at: string): Workspace {
   if (previous.schemaVersion === 2) return previous;
   const data = structuredClone(previous);
   data.schemaVersion = 2;
+  const demo = approvedDemoRubric(at);
   data.calls = [{
     id: "convocatoria-legada", name: "Convocatoria heredada · Demo",
     startsOn: "2000-01-01", endsOn: "2099-12-31", status: "abierta",
-    rubric: { ...structuredClone(data.rubric), requirements: structuredClone(DEMO_RUBRIC.requirements),
+    rubric: { ...structuredClone(data.rubric), requirements: structuredClone(demo.requirements),
       sources: [{ criterion: "Todos los criterios", reference: "Reglas del prototipo anterior, sin fuente normativa validada.", status: "simulacion" }] },
     vacancyIds: data.vacancies.map(v => v.id), createdAt: at
   }];
@@ -26,7 +27,8 @@ export function migrateWorkspace(previous: Workspace, at: string): Workspace {
     data.calls.push({ ...structuredClone(data.calls[0]), id: r.callId,
       name: "Histórico heredado · " + r.id, status: "cerrada", vacancyIds: [r.vacancyId] });
   });
-  data.rubric = structuredClone(DEMO_RUBRIC);
+  data.rubric = structuredClone(demo);
+  data.rubrics = [structuredClone(demo)];
   data.experiences = [];
   data.proposals = [];
   data.reviews = data.merits.filter(m => m.status !== "pendiente").map(m => ({

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, ShieldCheck, FileText, LockKeyhole, CheckCheck, ClipboardCheck, Printer } from "lucide-react";
+import { ArrowLeft, ShieldCheck, FileText, LockKeyhole, CheckCheck, Printer } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
@@ -64,12 +64,4 @@ export function EvaluationView({
     }} />
  {preview && <EvidencePreview fileId={preview} onClose={() => setPreview("")} />}
  </>;
-}
-export function Rubric() {
-  const {
-    data
-  } = useWorkspace();
-  if (!data) return null;
-  const r = data.rubric;
-  return <><PageHeader eyebrow="CRITERIOS DE LA DEMOSTRACIÓN" title="Rúbrica de ejemplo" description="Esta tabla permite demostrar el flujo completo. Sus valores no constituyen la normativa oficial de promoción de la UNP." /><div className="simulation-notice"><ShieldCheck size={20} /><p><b>{r.version} · Simulación académica.</b> Valida el anexo oficial antes de conectar este sistema a un proceso real.</p></div><div className="two-columns"><section className="panel"><SectionTitle title="Criterios de puntuación" /><DataTable headers={["Criterio", "Regla de ejemplo", "Tope"]}>{[["Grado académico", "Maestría 30; doctorado 45. Solo el más alto.", "45"], ["Tiempo en categoría", "3 puntos por año completo.", "15"], ["Investigación", "8 puntos por evidencia verificada.", "24"], ["Ponencia", "3 puntos por evidencia verificada.", "12"], ["Participación", "1 punto por evidencia verificada.", "4"]].map(([a, b, d]) => <TableRow key={a}><TableCell><strong>{a}</strong></TableCell><TableCell>{b}</TableCell><TableCell>{d}</TableCell></TableRow>)}</DataTable><div className="table-footer">Máximo: 100 · Umbral de referencia: 55 · Sin redondeo</div></section><section className="panel padded"><SectionTitle title="Condiciones adicionales de ejemplo" /><div className="rubric-requirement"><ClipboardCheck /><div><h3>Para asociado</h3><p>Maestría o doctorado verificado, 3 años en categoría, una investigación y ratificación acreditada.</p></div></div><div className="rubric-requirement"><ClipboardCheck /><div><h3>Para principal</h3><p>Doctorado verificado, 5 años en categoría, tres investigaciones y ratificación acreditada.</p></div></div><div className="notice"><b>Plaza pertinente</b><p>Debe coincidir en facultad, departamento, categoría destino y dedicación.</p></div></section></div></>;
 }

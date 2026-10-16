@@ -14,7 +14,9 @@ Actualizado el 16/09/2026. Esta matriz distingue el proceso implementado para de
 | RN05 · Orden de mérito | Cuadro por convocatoria y plaza, puestos compartidos en empate; solo primer puesto apto sin empate inicia propuesta | ranking, createProposal |
 | RF08 / CUN05 · Elaborar resultado | Conclusión de comisión, copias históricas, impresión y evidencia considerada | EvaluationView, closeEvaluation |
 | RF08 / CUN06 · Tramitar propuesta | Informe de decanato → oficio a Facultad → acuerdo elevado al Consejo Universitario → decisión motivada | Proposal, createProposal, advanceProposal |
-| RNF01 · Acceso por roles | Responsabilidades demostrables por perfil; docente consulta solo su expediente mediante los servicios | snapshot, comprobaciones de rol |
+| RF10 / CUS06 · Rúbrica versionada | Catálogo de versiones con criterios, topes y requisitos por categoría destino; borrador editable y aprobación que fija y bloquea la versión vigente (RN09); estado de fuente simulación/oficial; la convocatoria solo aplica versiones aprobadas | Workspace.rubrics, Rubric, saveRubric/approveRubric, rubric.tsx |
+| RNF01 · Acceso por roles | Responsabilidades demostrables por perfil; portal de inicio de sesión por actor y docente que consulta solo su expediente mediante los servicios | login.tsx, snapshot, comprobaciones de rol |
+| Portal de acceso por actor | Inicio de sesión institucional (credenciales @unp.edu.pe, cuentas oficiales de prueba y OIDC simulado), cierre de sesión y cambio de responsable; cada cuenta declara los casos de uso (CUS) que puede ejecutar | login.tsx, roleUseCases, login/logout/setActor |
 | RNF02 · Trazabilidad | Identidad ficticia estable, historial de revisión y auditoría con versiones antes/después | Identity, ReviewEvent, AuditEntry.changes |
 | RNF03 · Conservación | IndexedDB y blobs persistentes, transacciones con revisión esperada, migración sin reset | indexeddb.ts, migrations.ts |
 | RNF04 · Fuente y versión | Fuente didáctica declarada por criterio, requisitos y versión conservados por convocatoria/evaluación | Rubric.sources, callSnapshot |
@@ -39,6 +41,8 @@ Actualizado el 16/09/2026. Esta matriz distingue el proceso implementado para de
 8. La decisión simulada no cambia automáticamente la categoría de la ficha. El proceso real requerirá resolución válida e integración con personal.
 9. Título y constancias laborales forman parte del legajo, sin puntos nuevos. La rúbrica solo puntúa antigüedad en categoría. Se permiten periodos laborales superpuestos porque pueden existir cargos simultáneos.
 10. Las revisiones anteriores a esta actualización no tienen identidad recuperable: la migración lo indica explícitamente. No inventa observaciones eliminadas en versiones anteriores ni altera evaluaciones cerradas.
+11. Las rúbricas se versionan y aprueban (RF10/CUS06). Una versión aprobada no se modifica: cualquier cambio exige una nueva versión (RN09). La convocatoria solo puede aplicarse a una versión aprobada y guarda su copia congelada. Quién tiene la competencia formal para aprobar una rúbrica sigue siendo un pendiente institucional; en la demostración lo hace el personal de legajos.
+12. La sesión de demostración (perfil y cuenta activa) se resuelve con instantáneas seguras para SSR mediante `useSyncExternalStore`: el HTML del servidor y la primera hidratación coinciden, y la cuenta se actualiza después de hidratar. Se corrigió así el desajuste que aparecía al cambiar de perfil y recargar. El portal de acceso lista, por cada cuenta oficial, los casos de uso (CUS) que ese rol puede ejecutar.
 
 ## Pendientes institucionales
 
@@ -50,6 +54,7 @@ La restricción de perfiles local no sustituye autenticación/autorización del 
 
 - tests/rules.spec.ts: reglas de puntaje, evidencias, revisión/corrección, archivos e históricos.
 - tests/workflow.spec.ts: responsables, convocatorias, fuentes, orden de mérito, empates, permisos, propuestas, decisión, trayectoria y migración.
-- tests/browser.spec.ts: recorridos de interfaz, recarga, archivos, móvil y trámite completo.
+- tests/rubric.spec.ts: versionado y aprobación de rúbricas (RF10/CUS06), bloqueo de la versión aprobada (RN09), permisos y aplicación a la convocatoria.
+- tests/browser.spec.ts: recorridos de interfaz, recarga, archivos, móvil, trámite completo e inicio de sesión por actor (credenciales, cuentas de prueba y cierre de sesión).
 
 Si la versión anterior contiene varias solicitudes de una misma persona, la migración separa las anteriores en convocatorias técnicas cerradas de archivo. Esa agrupación no afirma que hayan existido convocatorias institucionales distintas y evita comparar a una persona consigo misma. Las evaluaciones originales permanecen intactas.

@@ -1,4 +1,4 @@
-import { DEMO_RUBRIC } from "../domain/models";
+import { approvedDemoRubric } from "../domain/models";
 import type { Workspace, Teacher, Merit, DocumentFile, Vacancy } from "../domain/models";
 export function demoPdf(title: string): Blob {
   const clean = title.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^\x20-\x7E]/g, "").replace(/[()\\]/g, " ").slice(0, 76);
@@ -109,10 +109,11 @@ export function seed(): {
     available: false,
     label: "PL-004 · Principal / Industrial"
   }];
+  const rubric = approvedDemoRubric(date);
   return {
     data: {
       schemaVersion: 2,
-      calls: [{ id: "c2026", name: "Promoción docente 2026 · Demo", startsOn: "2026-01-01", endsOn: "2026-12-31", status: "abierta", rubric: structuredClone(DEMO_RUBRIC), vacancyIds: vacancies.map(v => v.id), createdAt: date }],
+      calls: [{ id: "c2026", name: "Promoción docente 2026 · Demo", startsOn: "2026-01-01", endsOn: "2026-12-31", status: "abierta", rubric: structuredClone(rubric), vacancyIds: vacancies.map(v => v.id), createdAt: date }],
       reviews: merits.filter(m => m.status !== "pendiente").map(m => ({
         id: "seed-review-" + m.id, meritId: m.id, teacherId: m.teacherId, at: date, action: "revision",
         reviewer: { id: "seed", name: "Registro inicial de ejemplo", role: "legajos" },
@@ -170,7 +171,8 @@ export function seed(): {
         updatedAt: date,
         submittedAt: date
       }],
-      rubric: structuredClone(DEMO_RUBRIC),
+      rubric: structuredClone(rubric),
+      rubrics: [structuredClone(rubric)],
       audit: [{
         id: "a1",
         at: date,

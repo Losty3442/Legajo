@@ -568,3 +568,34 @@ test("imagen PNG, nuevo borrador y evaluación con puntaje insuficiente", async 
     exact: true
   }).evaluate((element: HTMLImageElement) => element.naturalWidth)).toBe(1);
 });
+
+test("portal de inicio de sesión: credenciales UNP, acceso rápido y cierre de sesión", async ({ page }) => {
+  // Ir al portal de login directamente
+  await page.goto("/login");
+  await expect(page.getByRole("heading", { name: "Sistema Integrado de Legajo y Promoción Docente", exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Universidad Nacional de Piura", exact: true })).toBeVisible();
+
+  // Cambiar a la pestaña de cuentas rápidas
+  await page.getByRole("tab", { name: "Cuentas Oficiales de Prueba" }).click();
+  await expect(page.getByRole("tabpanel").getByText("María Valeria Ríos", { exact: true })).toBeVisible();
+  await expect(page.getByRole("tabpanel").getByText("Dra. Ana Salas Paredes", { exact: true })).toBeVisible();
+
+  // Iniciar sesión con un clic como Dra. Ana Salas (Legajos)
+  await page.getByRole("tabpanel").getByText("Dra. Ana Salas Paredes", { exact: true }).click();
+  await expect(page).toHaveURL(/\/$/);
+  await expect(page.getByRole("heading", { name: "Panel de gestión", exact: true })).toBeVisible();
+  await expect(page.getByText("Dra. Ana Salas", { exact: false }).first()).toBeVisible();
+
+  // Probar cierre de sesión
+  await page.getByRole("button", { name: "Cerrar sesión" }).first().click();
+  await expect(page.getByRole("heading", { name: "Sistema Integrado de Legajo y Promoción Docente", exact: true })).toBeVisible();
+
+  // Iniciar sesión con credenciales institucionales de docente
+  await page.getByLabel("Correo Electrónico Institucional UNP").fill("mvrios@unp.edu.pe");
+  await page.getByLabel("Contraseña / Código de Acceso").fill("unp2026");
+  await page.getByRole("button", { name: "Iniciar Sesión Institucional" }).click();
+
+  // Confirmar que entra al panel de docente
+  await expect(page).toHaveURL(/\/$/);
+  await expect(page.getByRole("heading", { name: "Tu trayectoria, en un solo lugar", exact: true })).toBeVisible();
+});

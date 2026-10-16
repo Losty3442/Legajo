@@ -4,10 +4,11 @@ import { useState } from "react";
 import Link from "next/link";
 import { Plus, CalendarDays } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
 import { useWorkspace } from "../provider";
 import { legajoService } from "../../composition";
 import type { PromotionCall } from "../../domain/models";
-import { PageHeader, SectionTitle, Status, Field, RecordDialog, Confirm, Empty, dateLabel } from "../components/common";
+import { PageHeader, SectionTitle, Status, Field, FilterSelect, RecordDialog, Confirm, Empty, dateLabel } from "../components/common";
 
 export function Calls() {
   const { data, actor, busy, execute } = useWorkspace();
@@ -41,17 +42,20 @@ function CallForm({ call, onClose }: { call?: PromotionCall; onClose: () => void
   const { data, actor, busy, execute } = useWorkspace();
   const [vacancyIds, setVacancyIds] = useState(call?.vacancyIds ?? []);
   const [dirty, setDirty] = useState(false);
+  const rubrics = (data?.rubrics?.length ? data.rubrics : data ? [data.rubric] : []).filter(r => r.aprobadaEn);
+  const [rubricId, setRubricId] = useState(call?.rubric.id ?? data?.rubric.id ?? "");
   if (!data) return null;
   return <RecordDialog open onClose={onClose} dirty={dirty} title={call ? "Editar convocatoria" : "Nueva convocatoria"} description="La rúbrica se copia al crear el proceso. Sus condiciones se congelan desde la primera solicitud.">
     <form className="form-stack" onChange={() => setDirty(true)} onSubmit={async e => {
       e.preventDefault(); const values = new FormData(e.currentTarget);
-      if (await execute(() => legajoService.saveCall(actor, { name: String(values.get("call-name")), startsOn: String(values.get("call-start")), endsOn: String(values.get("call-end")), vacancyIds }, call?.id), "Convocatoria guardada")) onClose();
+      if (await execute(() => legajoService.saveCall(actor, { name: String(values.get("call-name")), startsOn: String(values.get("call-start")), endsOn: String(values.get("call-end")), vacancyIds, rubricId }, call?.id), "Convocatoria guardada")) onClose();
     }}>
       <Field name="call-name" label="Nombre de la convocatoria" defaultValue={call?.name} minLength={5} required autoFocus />
       <div className="form-grid"><Field name="call-start" label="Inicio de presentación" type="date" defaultValue={call?.startsOn} required /><Field name="call-end" label="Fin de presentación" type="date" defaultValue={call?.endsOn} required /></div>
+      <div className="field"><Label>Rúbrica aplicada</Label>{rubrics.length ? <FilterSelect label="Rúbrica de la convocatoria" value={rubricId} onChange={v => { setRubricId(v); setDirty(true); }} options={rubrics.map(r => ({ value: r.id!, label: r.version + (r.estadoFuente === "oficial" ? " · Fuente oficial" : " · Simulación") }))} /> : <div className="notice warning">No hay una rúbrica aprobada. Aprueba una versión antes de crear la convocatoria (RN09).</div>}</div>
       <fieldset className="form-stack"><legend>Plazas de la convocatoria</legend>{data.vacancies.map(v => <label className="checkbox-row" key={v.id}><input type="checkbox" checked={vacancyIds.includes(v.id)} onChange={e => setVacancyIds(e.target.checked ? [...vacancyIds, v.id] : vacancyIds.filter(id => id !== v.id))} />{v.label}{!v.available && " · Sin disponibilidad"}</label>)}</fieldset>
-      <div className="notice"><b>Rúbrica: {call?.rubric.version ?? data.rubric.version}</b><p>Reglas de simulación, sin validación normativa.</p></div>
-      <Button disabled={busy || !vacancyIds.length} type="submit">Guardar convocatoria</Button>
+      <div className="notice"><b>Rúbrica: {rubrics.find(r => r.id === rubricId)?.version ?? "Sin versión aprobada"}</b><p>Reglas de simulación, sin validación normativa.</p></div>
+      <Button disabled={busy || !vacancyIds.length || !rubricId} type="submit">Guardar convocatoria</Button>
     </form>
   </RecordDialog>;
 }

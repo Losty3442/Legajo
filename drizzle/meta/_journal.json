@@ -1,5 +1,13 @@
 {
   "version": "7",
   "dialect": "sqlite",
-  "entries": []
+  "entries": [
+    {
+      "idx": 0,
+      "version": "6",
+      "when": 1791417600000,
+      "tag": "0000_legajo_promocion_unp",
+      "breakpoints": true
+    }
+  ]
 }

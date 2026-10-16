@@ -76,6 +76,24 @@ El selector de perfil en la cabecera permite alternar entre roles operativos par
 | **Consejo de Facultad** | Revisar la propuesta, registrar acuerdo de aprobación y elevar al Consejo Universitario. |
 | **Consejo Universitario** | Emitir la resolución/decisión motivada final (aprobatoria o denegatoria). |
 
+### Portal de acceso por actor
+
+La pantalla **Inicio / Cuentas** (`/login`) permite entrar con **credenciales institucionales** (`@unp.edu.pe`),
+con una **cuenta oficial de prueba** en un clic o con el **conector OIDC simulado**, y cerrar sesión. Cada
+cuenta declara los **casos de uso (CUS)** del Análisis v2.0 que su rol puede ejecutar:
+
+| Perfil | Casos de uso (CUS) |
+|---|---|
+| Docente | CUS02, CUS03, CUS05, CUS09, CUS16, CUS17 |
+| Personal de Legajos | CUS01, CUS02, CUS03, CUS04, CUS06, CUS07, CUS10, CUS17 · CUS08 en fase institucional |
+| Comisión Evaluadora | CUS04, CUS06, CUS10, CUS11, CUS12, CUS17 |
+| Decanato | CUS12, CUS13, CUS14, CUS16 |
+| Consejo de Facultad | CUS14, CUS16 |
+| Consejo Universitario | CUS15, CUS16 |
+
+La sesión (perfil y cuenta activa) se conserva en `sessionStorage` y se resuelve con instantáneas seguras para
+SSR, de modo que el HTML del servidor y la primera hidratación coinciden al recargar la página.
+
 ---
 
 ## 🧪 Guion de Demostración para Sustentación
@@ -146,8 +164,33 @@ docs/                        Documentación técnica de arquitectura, contratos 
 
 ---
 
+## 🔌 Modelo de datos (listo para conectar)
+
+El prototipo sigue ejecutándose con **IndexedDB** y **no requiere base de datos**. En paralelo, el
+proyecto ya incluye el modelo relacional del Análisis del Sistema v2.0, listo para conectarse cuando
+se decida (fase de servidor):
+
+- `db/schema.ts`: esquema **Drizzle** (dialecto `sqlite` / Cloudflare D1) con las **35 tablas** de
+  los módulos A–F y los tipos enumerados del documento.
+- `drizzle/0000_legajo_promocion_unp.sql`: DDL completo (tablas, índices, **triggers** de
+  integridad y catálogos) tomado del anexo B del análisis.
+- `db/index.ts`: punto de conexión (`getDb()`), que permanece sin usar mientras el binding `DB` no
+  se declare.
+
+Además, **RF10 / CUS06** (rúbrica versionada) ya está implementado en el prototipo sobre IndexedDB:
+borrador editable, **aprobación** que fija y bloquea la versión vigente (RN09), `estado_fuente`
+`simulacion|oficial`, fuente por criterio y requisitos por categoría destino. La pantalla
+**Rúbricas y requisitos** (`/rubrica`) permite gestionarlas y la convocatoria solo se aplica a una
+versión **aprobada**.
+
+Para ver la comparación detallada con el documento y el plan de alineación, consulta
+[docs/PLAN-ALINEACION-ANALISIS-V2.md](docs/PLAN-ALINEACION-ANALISIS-V2.md).
+
+---
+
 ## 📚 Documentación Técnica Adicional
 
+- [Plan de Alineación con el Análisis v2](docs/PLAN-ALINEACION-ANALISIS-V2.md): Concordancia del proyecto con el documento de análisis v2.0 y plan para alinearlo.
 - [API y Arquitectura Futura](docs/API-Y-ARQUITECTURA.md): Plan de migración hacia servicios backend distribuidos, base de datos relacional y autenticación JWT/OAuth.
 - [Guía de Sustentación](docs/GUIA-SUSTENTACION-ACTUALIZADA.md): Secuencia y casos de prueba preparados para evaluación académica.
 - [Matriz de Trazabilidad](docs/TRAZABILIDAD.md): Mapeo entre requisitos funcionales, casos de uso y módulos implementados.
