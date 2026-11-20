@@ -131,6 +131,7 @@ export class LegajoService {
     await this.repos.workspace.commit(data, expected, files);
   }
   private identity(actor: Actor, data: Workspace): Identity {
+    if (actor.identity && actor.identity.id === actor.userId && actor.identity.role === actor.role) return structuredClone(actor.identity);
     if (actor.role === "docente") {
       const teacher = data.teachers.find(t => t.id === actor.teacherId);
       ensure(teacher, "Docente no encontrado.");

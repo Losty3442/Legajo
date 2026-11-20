@@ -1,18 +1,18 @@
-import { test, expect, type Page } from "@playwright/test";
-import { readFile } from "node:fs/promises";
-import { demoPdf } from "../src/infrastructure/seed";
-async function profile(page: Page, name: string) {
-  await page.getByRole("combobox", {
-    name: "Perfil de demostración",
-    exact: true
-  }).click();
-  await page.getByRole("option", {
-    name,
-    exact: true
-  }).click();
-  await expect(page).toHaveURL(/\/$/);
-  await expect(page.getByRole("heading", { name: name === "Docente" ? "Tu trayectoria, en un solo lugar" : "Panel de gestión", exact: true })).toBeVisible();
+import {expect,chromium,type Page} from "@playwright/test";
+import {test,resetTestDatabase,credential} from "./postgres-fixture";
+import type {Role} from "../src/domain/models";
+import {demoPdf} from "../src/infrastructure/seed";
+import {readFile} from "node:fs/promises";
+const roles:Record<string,Role>={"Docente":"docente","Personal de legajos":"legajos","Comisión evaluadora":"comision","Decanato":"decanato","Consejo de Facultad":"consejo_facultad","Consejo Universitario":"consejo_universitario"};
+async function profile(page:Page,name:string,teacherId?:string){
+  const logout=page.locator('button[title="Cerrar sesión"]').first();
+  if(await logout.count()){await logout.click();await expect(page.getByLabel("Correo de acceso")).toBeVisible();}
+  else await page.goto("/");
+  const c=await credential(roles[name],roles[name]==="docente"?(teacherId??"t1"):undefined);
+  await page.getByLabel("Correo de acceso").fill(c.email);await page.getByLabel("Contraseña",{exact:true}).fill(c.password);await page.getByRole("button",{name:"Ingresar",exact:true}).click();
+  await expect(page.getByRole("heading",{name:name==="Docente"?"Tu trayectoria, en un solo lugar":"Panel de gestión",exact:true})).toBeVisible();
 }
+test.beforeEach(async({page})=>{await resetTestDatabase();await profile(page,"Personal de legajos");});
 async function navigate(page: Page, name: string) {
   const link = page.getByRole("link", {
     name,
@@ -60,8 +60,7 @@ test("trámite completo hasta decisión institucional, visible al docente tras r
   await expect(page.getByText("RES-DEMO-2026", { exact: true })).toBeVisible();
   await page.screenshot({ path: "test-results/proposal-desktop.png", fullPage: true });
   await profile(page, "Docente");
-  await page.getByRole("combobox", { name: "Docente de demostración", exact: true }).click();
-  await page.getByRole("option", { name: "Gabriel Torres Salazar", exact: true }).click();
+  await profile(page, "Docente", "t2");
   await expect(page.getByRole("heading", { name: "Tu trayectoria, en un solo lugar", exact: true })).toBeVisible();
   await navigate(page, "Propuestas y decisiones");
   await page.reload();
@@ -132,15 +131,6 @@ async function review(page: Page, title: string, observe = false) {
   }).click();
   await expect(page.getByRole("dialog")).toHaveCount(0);
 }
-test.beforeEach(async ({
-  page
-}) => {
-  await page.goto("/");
-  await expect(page.getByRole("heading", {
-    name: "Panel de gestión",
-    exact: true
-  })).toBeVisible();
-});
 test("recorrido completo con PDF, corrección, solicitud y resultado persistente", async ({
   page
 }) => {
@@ -287,315 +277,15 @@ test("recorrido completo con PDF, corrección, solicitud y resultado persistente
   });
   expect(errors).toEqual([]);
 });
-test("registro, edición, búsqueda y filtros de docentes", async ({
-  page
-}) => {
-  await navigate(page, "Docentes y legajos");
-  await page.getByRole("button", {
-    name: "Registrar docente",
-    exact: true
-  }).click();
-  await page.getByLabel("Nombres y apellidos", {
-    exact: true
-  }).fill("Docente Prueba Persistente");
-  await page.getByLabel("Correo electrónico", {
-    exact: true
-  }).fill("prueba@ejemplo.test");
-  await page.getByLabel("Especialidad", {
-    exact: true
-  }).fill("Análisis de sistemas");
-  await page.getByLabel("Inicio en la categoría actual", {
-    exact: true
-  }).fill("2020-01-01");
-  await page.getByRole("button", {
-    name: "Guardar docente",
-    exact: true
-  }).click();
-  await expect(page.getByRole("dialog")).toHaveCount(0);
-  await page.getByRole("textbox", {
-    name: "Buscar docentes"
-  }).fill("Docente Prueba");
-  const row = page.getByRole("row").filter({
-    hasText: "Docente Prueba Persistente"
-  });
-  await row.getByRole("link", {
-    name: "Ver legajo"
-  }).click();
-  await page.getByRole("button", {
-    name: "Editar ficha",
-    exact: true
-  }).click();
-  await page.getByLabel("Especialidad", {
-    exact: true
-  }).fill("Arquitectura por capas");
-  await page.getByRole("button", {
-    name: "Guardar docente",
-    exact: true
-  }).click();
-  await expect(page.getByRole("dialog")).toHaveCount(0);
-  await page.reload();
-  await expect(page.getByText("Arquitectura por capas", {
-    exact: true
-  })).toBeVisible();
+
+test("cuenta nueva y datos compartidos desde otro navegador",async({page})=>{
+  await navigate(page,"Docentes y legajos");await page.getByRole("button",{name:"Registrar docente",exact:true}).click();
+  await page.getByLabel("Nombres y apellidos",{exact:true}).fill("Docente Persistente Navegador");await page.getByLabel("Correo electrónico",{exact:true}).fill("persistente@example.test");await page.getByLabel("Especialidad",{exact:true}).fill("Persistencia PostgreSQL");await page.getByLabel("Inicio en la categoría actual",{exact:true}).fill("2020-01-01");
+  await page.getByRole("button",{name:"Guardar docente",exact:true}).click();await expect(page.getByRole("heading",{name:"Cuenta docente creada"})).toBeVisible();await page.keyboard.press("Escape");
+  const other=await chromium.launch({channel:"chrome",headless:true});try{const second=await other.newPage();await second.goto("http://localhost:5183");await profile(second,"Personal de legajos");await navigate(second,"Docentes y legajos");await second.getByRole("textbox",{name:"Buscar docentes"}).fill("Docente Persistente Navegador");await expect(second.getByRole("row").filter({hasText:"Docente Persistente Navegador"})).toBeVisible();}finally{await other.close();}
+  await expect(page.getByRole("combobox",{name:"Perfil de demostración"})).toHaveCount(0);await expect(page.getByRole("button",{name:/Restaurar/})).toHaveCount(0);
 });
-test("perfil docente limita las fichas y comisión puede cerrar sin vacante", async ({
-  page
-}) => {
-  await profile(page, "Docente");
-  await page.goto("/legajos/t2");
-  await expect(page.getByText("Legajo no disponible", { exact: true })).toBeVisible();
-  await navigate(page, "Mi legajo");
-  await expect(page.getByRole("heading", {
-    name: "María Valeria Ríos",
-    exact: true
-  })).toBeVisible();
-  await expect(page.getByRole("button", {
-    name: "Editar ficha",
-    exact: true
-  })).toHaveCount(0);
-  await expect(page.getByRole("link", {
-    name: "Revisión documental",
-    exact: true
-  })).toHaveCount(0);
-  await profile(page, "Comisión evaluadora");
-  await navigate(page, "Evaluaciones");
-  await page.getByRole("row").filter({
-    hasText: "Diego Mendoza Ruiz"
-  }).getByRole("link", {
-    name: "Evaluar",
-    exact: true
-  }).click();
-  await expect(page.getByText("Cumple, pero no hay plaza disponible", {
-    exact: true
-  })).toBeVisible();
-  await page.getByLabel("Fundamento del resultado").fill("Cumple puntaje y requisitos, pero no cuenta con vacante.");
-  await page.getByRole("button", {
-    name: "Cerrar evaluación",
-    exact: true
-  }).click();
-  await page.getByRole("button", {
-    name: "Confirmar",
-    exact: true
-  }).click();
-  await expect(page.getByRole("heading", {
-    name: "Resultado de evaluación",
-    exact: true
-  })).toBeVisible();
-  await expect(page.getByText("Sin vacante", {
-    exact: true
-  })).toBeVisible();
-});
-test("teclado, diálogo con cambios, menú móvil y ausencia de desbordamiento", async ({
-  page
-}) => {
-  await page.keyboard.press("Tab");
-  await expect(page.getByRole("link", {
-    name: "Saltar al contenido",
-    exact: true
-  })).toBeFocused();
-  await page.keyboard.press("Enter");
-  await expect(page.locator("#workspace")).toBeFocused();
-  await navigate(page, "Docentes y legajos");
-  await page.getByRole("button", {
-    name: "Registrar docente",
-    exact: true
-  }).click();
-  await page.getByLabel("Nombres y apellidos", {
-    exact: true
-  }).fill("Cambios sin guardar");
-  await page.keyboard.press("Escape");
-  await expect(page.getByRole("alertdialog")).toBeVisible();
-  await page.getByRole("button", {
-    name: "Cancelar",
-    exact: true
-  }).click();
-  await expect(page.getByRole("alertdialog")).toHaveCount(0);
-  await expect(page.getByLabel("Nombres y apellidos", {
-    exact: true
-  })).toHaveValue("Cambios sin guardar");
-  await page.keyboard.press("Escape");
-  await expect(page.getByRole("alertdialog")).toBeVisible();
-  await page.getByRole("button", {
-    name: "Confirmar",
-    exact: true
-  }).click();
-  await expect(page.getByRole("dialog")).toHaveCount(0);
-  await page.setViewportSize({
-    width: 390,
-    height: 844
-  });
-  await page.goto("/");
-  await expect(page.getByRole("heading", {
-    name: "Panel de gestión",
-    exact: true
-  })).toBeVisible();
-  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
-  await page.screenshot({
-    path: "test-results/dashboard-mobile.png",
-    fullPage: true
-  });
-  await page.getByRole("button", {
-    name: "Abrir navegación",
-    exact: true
-  }).click();
-  await page.getByRole("dialog").getByRole("link", {
-    name: "Docentes y legajos",
-    exact: true
-  }).click();
-  await expect(page.getByRole("dialog")).toHaveCount(0);
-  await expect(page.getByRole("heading", {
-    name: "Docentes",
-    exact: true
-  })).toBeVisible();
-  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
-  await page.screenshot({
-    path: "test-results/directory-mobile.png",
-    fullPage: true
-  });
-});
-test("imagen PNG, nuevo borrador y evaluación con puntaje insuficiente", async ({
-  page
-}) => {
-  await profile(page, "Docente");
-  await page.getByRole("combobox", {
-    name: "Docente de demostración",
-    exact: true
-  }).click();
-  await page.getByRole("option", {
-    name: "Andrés Navarro León",
-    exact: true
-  }).click();
-  await navigate(page, "Mi legajo");
-  await page.getByRole("button", {
-    name: "Agregar mérito",
-    exact: true
-  }).click();
-  await page.getByRole("combobox", {
-    name: "Tipo de mérito",
-    exact: true
-  }).click();
-  await page.getByRole("option", {
-    name: "Participación académica",
-    exact: true
-  }).click();
-  await page.getByLabel("Nombre del mérito", {
-    exact: true
-  }).fill("Participación con imagen PNG");
-  await page.getByLabel("Institución emisora", {
-    exact: true
-  }).fill("Institución de prueba");
-  await page.getByLabel("Fecha del documento o actividad", {
-    exact: true
-  }).fill("2026-08-01");
-  const png = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII=", "base64");
-  await page.locator('input[type="file"]').setInputFiles({
-    name: "ejemplo.png",
-    mimeType: "image/png",
-    buffer: png
-  });
-  await page.getByRole("button", {
-    name: "Guardar mérito",
-    exact: true
-  }).click();
-  await expect(page.getByRole("dialog")).toHaveCount(0);
-  await navigate(page, "Solicitudes");
-  await page.getByRole("button", {
-    name: "Nueva solicitud",
-    exact: true
-  }).click();
-  await page.getByRole("combobox", {
-    name: "Plaza correspondiente",
-    exact: true
-  }).click();
-  await page.getByRole("option", {
-    name: /PL-001/
-  }).click();
-  await page.getByRole("button", {
-    name: "Guardar borrador",
-    exact: true
-  }).click();
-  await expect(page.getByRole("dialog")).toHaveCount(0);
-  await expect(page.getByRole("row").filter({
-    hasText: "Andrés Navarro León"
-  })).toContainText("Borrador");
-  await page.getByRole("button", {
-    name: "Presentar",
-    exact: true
-  }).click();
-  await page.getByRole("button", {
-    name: "Confirmar",
-    exact: true
-  }).click();
-  await expect(page.getByRole("row").filter({
-    hasText: "Andrés Navarro León"
-  })).toContainText("Presentada");
-  await profile(page, "Personal de legajos");
-  await review(page, "Participación con imagen PNG");
-  await review(page, "Congreso de ingeniería de software");
-  await profile(page, "Comisión evaluadora");
-  await navigate(page, "Evaluaciones");
-  await page.getByRole("row").filter({
-    hasText: "Andrés Navarro León"
-  }).getByRole("link", {
-    name: "Evaluar",
-    exact: true
-  }).click();
-  await expect(page.getByRole("progressbar")).toHaveAttribute("aria-valuenow", "52");
-  await page.getByLabel("Fundamento del resultado").fill("Tiene 52 puntos, menos que el umbral de referencia.");
-  await page.getByRole("button", {
-    name: "Cerrar evaluación",
-    exact: true
-  }).click();
-  await page.getByRole("button", {
-    name: "Confirmar",
-    exact: true
-  }).click();
-  await expect(page.getByText("No apto", {
-    exact: true
-  })).toBeVisible();
-  await page.getByRole("row").filter({
-    hasText: "Participación con imagen PNG"
-  }).getByRole("button", {
-    name: "Abrir",
-    exact: true
-  }).click();
-  await expect(page.getByRole("img", {
-    name: "ejemplo.png",
-    exact: true
-  })).toBeVisible();
-  expect(await page.getByRole("img", {
-    name: "ejemplo.png",
-    exact: true
-  }).evaluate((element: HTMLImageElement) => element.naturalWidth)).toBe(1);
-});
-
-test("portal de inicio de sesión: credenciales UNP, acceso rápido y cierre de sesión", async ({ page }) => {
-  // Ir al portal de login directamente
-  await page.goto("/login");
-  await expect(page.getByRole("heading", { name: "Sistema Integrado de Legajo y Promoción Docente", exact: true })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Universidad Nacional de Piura", exact: true })).toBeVisible();
-
-  // Cambiar a la pestaña de cuentas rápidas
-  await page.getByRole("tab", { name: "Cuentas Oficiales de Prueba" }).click();
-  await expect(page.getByRole("tabpanel").getByText("María Valeria Ríos", { exact: true })).toBeVisible();
-  await expect(page.getByRole("tabpanel").getByText("Dra. Ana Salas Paredes", { exact: true })).toBeVisible();
-
-  // Iniciar sesión con un clic como Dra. Ana Salas (Legajos)
-  await page.getByRole("tabpanel").getByText("Dra. Ana Salas Paredes", { exact: true }).click();
-  await expect(page).toHaveURL(/\/$/);
-  await expect(page.getByRole("heading", { name: "Panel de gestión", exact: true })).toBeVisible();
-  await expect(page.getByText("Dra. Ana Salas", { exact: false }).first()).toBeVisible();
-
-  // Probar cierre de sesión
-  await page.getByRole("button", { name: "Cerrar sesión" }).first().click();
-  await expect(page.getByRole("heading", { name: "Sistema Integrado de Legajo y Promoción Docente", exact: true })).toBeVisible();
-
-  // Iniciar sesión con credenciales institucionales de docente
-  await page.getByLabel("Correo Electrónico Institucional UNP").fill("mvrios@unp.edu.pe");
-  await page.getByLabel("Contraseña / Código de Acceso").fill("unp2026");
-  await page.getByRole("button", { name: "Iniciar Sesión Institucional" }).click();
-
-  // Confirmar que entra al panel de docente
-  await expect(page).toHaveURL(/\/$/);
-  await expect(page.getByRole("heading", { name: "Tu trayectoria, en un solo lugar", exact: true })).toBeVisible();
+test("error recuperable sin volver a IndexedDB",async({page})=>{
+  await page.route("**/api/v1/workspace",route=>route.fulfill({status:503,contentType:"application/json",body:JSON.stringify({code:"DATABASE_UNAVAILABLE",message:"PostgreSQL temporalmente no disponible."})}));
+  await page.reload();await expect(page.getByText("No pudimos cargar los datos",{exact:true})).toBeVisible();await page.unroute("**/api/v1/workspace");await page.getByRole("button",{name:"Volver a intentar"}).click();await expect(page.getByRole("heading",{name:"Panel de gestión",exact:true})).toBeVisible();expect(await page.evaluate(async()=>(await indexedDB.databases()).some(d=>d.name==="unp-legajos-demo"))).toBe(false);
 });

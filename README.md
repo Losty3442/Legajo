@@ -1,203 +1,70 @@
-# Sistema de Gestión de Legajos Docentes y Promoción · UNP
+# Legajo UNP · PostgreSQL local
 
-[![React](https://img.shields.io/badge/React-19.2-blue?logo=react)](https://react.dev/)
-[![Next.js](https://img.shields.io/badge/Next.js-16.3-black?logo=next.js)](https://nextjs.org/)
-[![TypeScript](https://img.shields.io/badge/TypeScript-5.x-blue?logo=typescript)](https://www.typescriptlang.org/)
-[![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-4.2-38B2AC?logo=tailwind-css)](https://tailwindcss.com/)
-[![Vite](https://img.shields.io/badge/Vite-6.0-646CFF?logo=vite)](https://vitejs.dev/)
-[![Playwright](https://img.shields.io/badge/Tested_with-Playwright-2EAD33?logo=playwright)](https://playwright.dev/)
+Aplicación académica de legajos y promoción docente de la Universidad Nacional de Piura. React/Vinext conserva la presentación y la integración de Sites; Express ejecuta las reglas y consulta PostgreSQL mediante `pg` y Drizzle. Funciona únicamente en esta PC.
 
-Aplicación web académica desarrollada para el registro de legajos docentes, verificación de evidencias y simulación del proceso de evaluación de solicitudes de promoción docente en la **Universidad Nacional de Piura (UNP)**. 
+## Iniciar y entrar
 
-El sistema incluye datos de prueba, seis perfiles de demostración según la línea de responsabilidad institucional y persistencia local de documentos mediante IndexedDB.
+Requisitos: Node.js 22.13 o superior, PostgreSQL 18 encendido y las dependencias instaladas (`npm.cmd ci`). La preparación e importación inicial de esta PC ya están realizadas.
 
-> [!NOTE]  
-> La rúbrica utilizada (`DEMO-2026.2`) contiene valores ilustrativos para fines de sustentación académica del curso de Análisis y Diseño de Sistemas 2. El resultado de la simulación no concede un ascenso real ni constituye un trámite institucional vinculante.
-
----
-
-## 🚀 Requisitos y Puesta en Marcha
-
-### Requisitos previos
-- **Node.js**: Versión `22.13.0` o superior.
-- **npm**: Incluido con Node.js.
-- Navegador moderno (Microsoft Edge, Google Chrome, Firefox o Safari).
-
-### Instalación y Ejecución
-
-1. **Clonar el repositorio:**
-   ```bash
-   git clone https://github.com/Losty3442/Legajo.git
-   cd Legajo
-   ```
-
-2. **Instalar dependencias:**
-   ```bash
-   npm run install:ci
-   ```
-
-3. **Iniciar el servidor de desarrollo:**
-   ```bash
-   npm run dev
-   ```
-   *(En Windows PowerShell, si las políticas de ejecución restringen scripts, puedes ejecutar `npm.cmd run dev`)*.
-
-4. **Acceder a la aplicación:**
-   Abre tu navegador en [http://localhost:5173](http://localhost:5173).
-
-5. **Para detener el servidor:** Presiona `Ctrl + C` en la terminal.
-
----
-
-## 📋 Comandos del Proyecto
-
-| Comando | Descripción |
-|---|---|
-| `npm run dev` | Inicia el entorno de desarrollo en [http://localhost:5173](http://localhost:5173). |
-| `npm run build` | Compila la aplicación para producción. |
-| `npm start` | Ejecuta la versión compilada en el puerto 5173 manteniendo el mismo origen. |
-| `npm run typecheck` | Valida tipos de TypeScript sin emitir archivos. |
-| `npm run lint` | Ejecuta ESLint sobre el código fuente, componentes y pruebas. |
-| `npm test` | Ejecuta pruebas unitarias y de integración sobre IndexedDB en memoria (`fake-indexeddb`). |
-| `npm run test:e2e` | Ejecuta pruebas de extremo a extremo (E2E) con Playwright en Microsoft Edge/Chrome. |
-
----
-
-## 👥 Perfiles y Responsabilidades del Sistema
-
-El selector de perfil en la cabecera permite alternar entre roles operativos para validar los flujos de trabajo sin requerir credenciales externas en esta fase prototipo:
-
-| Perfil | Operaciones Principales |
-|---|---|
-| **Docente** | Consultar legajo, adjuntar/corregir evidencias documentales, preparar y presentar solicitudes de promoción. |
-| **Personal de Legajos** | Registrar y editar docentes, administrar legajos, revisar/observar documentos y solicitudes, gestionar convocatorias y restaurar datos de prueba. |
-| **Comisión Evaluadora** | Revisar expedientes, verificar cumplimiento de requisitos mínimos, validar puntajes por criterio y cerrar evaluaciones. |
-| **Decanato** | Consultar orden de mérito por plaza convocada, estructurar la propuesta de promoción y remitir a Consejo de Facultad. |
-| **Consejo de Facultad** | Revisar la propuesta, registrar acuerdo de aprobación y elevar al Consejo Universitario. |
-| **Consejo Universitario** | Emitir la resolución/decisión motivada final (aprobatoria o denegatoria). |
-
-### Portal de acceso por actor
-
-La pantalla **Inicio / Cuentas** (`/login`) permite entrar con **credenciales institucionales** (`@unp.edu.pe`),
-con una **cuenta oficial de prueba** en un clic o con el **conector OIDC simulado**, y cerrar sesión. Cada
-cuenta declara los **casos de uso (CUS)** del Análisis v2.0 que su rol puede ejecutar:
-
-| Perfil | Casos de uso (CUS) |
-|---|---|
-| Docente | CUS02, CUS03, CUS05, CUS09, CUS16, CUS17 |
-| Personal de Legajos | CUS01, CUS02, CUS03, CUS04, CUS06, CUS07, CUS10, CUS17 · CUS08 en fase institucional |
-| Comisión Evaluadora | CUS04, CUS06, CUS10, CUS11, CUS12, CUS17 |
-| Decanato | CUS12, CUS13, CUS14, CUS16 |
-| Consejo de Facultad | CUS14, CUS16 |
-| Consejo Universitario | CUS15, CUS16 |
-
-La sesión (perfil y cuenta activa) se conserva en `sessionStorage` y se resuelve con instantáneas seguras para
-SSR, de modo que el HTML del servidor y la primera hidratación coinciden al recargar la página.
-
----
-
-## 🧪 Guion de Demostración para Sustentación
-
-Sigue este flujo guiado para demostrar el ciclo de vida completo de un expediente:
-
-1. **Inicio como Docente**:
-   - Selecciona el perfil **Docente** y abre el legajo de **María Valeria Ríos** (puntaje inicial verificado: 53 pts).
-2. **Subida de evidencia**:
-   - Añade una ponencia adjuntando un archivo PDF o imagen de prueba. Su estado inicial será `Por revisar` y no sumará puntaje inmediatamente.
-3. **Revisión documental**:
-   - Cambia al perfil **Personal de legajos**. En la pestaña *Revisión documental*, observa la evidencia indicando el motivo de corrección.
-4. **Subsanación**:
-   - Regresa al perfil **Docente**, entra a *Méritos*, corrige el documento y vuelve a enviarlo.
-5. **Aprobación de evidencia**:
-   - Como **Personal de legajos**, verifica la evidencia subsanada y aprueba la ponencia inicial.
-6. **Revisión de solicitud**:
-   - En *Solicitudes*, comprueba el expediente completo preparado para postulación.
-7. **Evaluación y Cierre**:
-   - Ingresa como **Comisión evaluadora**, abre la solicitud, evalúa requisitos, puntaje y plaza; añade las conclusiones y presiona **Cerrar evaluación**.
-8. **Consulta de resultados**:
-   - Recarga la página: los documentos y la evaluación final permanecen inmutables.
-9. **Flujo jerárquico**:
-   - Pasa por **Decanato** (propuesta), **Consejo de Facultad** (elevación) y **Consejo Universitario** (decisión final).
-   
-Consulta la [Guía de Sustentación Actualizada](docs/GUIA-SUSTENTACION-ACTUALIZADA.md) y la [Matriz de Trazabilidad](docs/TRAZABILIDAD.md) para más detalles.
-
----
-
-## 🏗️ Arquitectura de Software
-
-El proyecto implementa los principios de **Clean Architecture** (Arquitectura Limpia) con separación estricta de capas:
-
-```text
-app/                         Rutas y layout compatibles con Next.js App Router
-src/
-  domain/                    Entidades puras, reglas de negocio y cálculo de puntajes
-  application/               Casos de uso, validaciones y contratos de repositorios
-  infrastructure/            Persistencia en IndexedDB, transacciones y gestión de blobs
-  presentation/
-    components/              Formularios y componentes reutilizables
-    features/                Módulos funcionales (Panel, Directorio, Legajo, Revisión, Convocatorias)
-    provider.tsx             Estado global de presentación, mensajes y contexto
-    workspace.tsx            Navegación principal, selector de perfiles y vistas
-  composition.ts             Contenedor de inyección de dependencias (IoC local)
-components/ui/               Primitivas de interfaz accesibles (Radix UI / shadcn)
-tests/                       Pruebas unitarias, de integración y escenarios E2E
-docs/                        Documentación técnica de arquitectura, contratos y validación
+```powershell
+npm.cmd run dev
 ```
 
-### Flujo de Dependencias
-- **Presentación → Aplicación → Dominio**.
-- La capa de Infraestructura implementa las interfaces definidas en Aplicación.
-- El núcleo del dominio es agnóstico: no tiene dependencias de React, APIs del navegador ni bibliotecas externas de interfaz.
+Abre **http://localhost:5173**. El frontend interno usa el puerto 5174; la API y las páginas comparten el origen 5173. Para ejecutar la versión compilada:
 
----
+```powershell
+npm.cmd run build
+npm.cmd start
+```
 
-## 💾 Persistencia y Almacenamiento Local
+`Ctrl+C` detiene ambos componentes. También puedes ejecutar `npm.cmd stop` desde esta carpeta. Detén la instancia anterior antes de cambiar entre desarrollo y versión compilada.
 
-- **IndexedDB**: Base de datos local `unp-legajos-demo` (versión 1).
-  - Almacén `workspace`: Estructuras de datos, catálogos, convocatorias, auditoría y evaluaciones cerradas.
-  - Almacén `documents`: Archivos binarios reales (PDF, PNG, JPG, WebP de hasta 10 MB) con validación de tipo MIME y firma.
-- **Transacciones atómicas**: Control de concurrencia mediante números de revisión secuencial para prevenir colisiones de edición.
-- **Inmutabilidad histórica**: Al corregir una evidencia se genera un identificador nuevo; los documentos históricos y evaluaciones cerradas no se sobrescriben.
+Las 13 cuentas iniciales y sus claves individuales están en **`.local/CREDENCIALES-LEGAJO.md`**, privado y excluido de Git. Son cuentas locales de prueba. El servidor verifica la contraseña con scrypt y conserva sesiones de ocho horas mediante cookies HttpOnly/SameSite. El alta de un docente crea su cuenta y muestra la clave inicial una sola vez al personal que lo registró.
 
-> [!IMPORTANT]
-> Los datos persisten en el origen exacto del navegador (`http://localhost:5173`). Usar otra dirección IP, otro puerto, otro perfil de navegador o navegar en modo incógnito utilizará un almacenamiento aislado.
+## Datos conservados
 
----
+Base `legajos_unp`, servidor PostgreSQL local, conexión **legajo** de pgAdmin. Si no aparece, actualiza el nodo Databases. Se conservaron 6 docentes, 24 méritos, 4 solicitudes y 24 documentos del perfil **The de Chrome**, origen `http://localhost:5173`.
 
-## 🔌 Modelo de datos (listo para conectar)
+Respaldo original: `.local/backups/chrome-legacy-20261110-162412/legajo-chrome-backup.zip`. La copia de los archivos de IndexedDB también está en esa carpeta. El origen permanece intacto. Los documentos activos están en `data/documents`, fuera de `public`, con propietario, versión, tamaño y SHA-256.
 
-El prototipo sigue ejecutándose con **IndexedDB** y **no requiere base de datos**. En paralelo, el
-proyecto ya incluye el modelo relacional del Análisis del Sistema v2.0, listo para conectarse cuando
-se decida (fase de servidor):
+La rúbrica heredada no tenía una aprobación registrada: se conserva como borrador de simulación. Legajos puede revisarla y aprobarla desde **Rúbrica de ejemplo**. No se inventó una aprobación institucional. Las comisiones son de demostración local.
 
-- `db/schema.ts`: esquema **Drizzle** (dialecto `sqlite` / Cloudflare D1) con las **35 tablas** de
-  los módulos A–F y los tipos enumerados del documento.
-- `drizzle/0000_legajo_promocion_unp.sql`: DDL completo (tablas, índices, **triggers** de
-  integridad y catálogos) tomado del anexo B del análisis.
-- `db/index.ts`: punto de conexión (`getDb()`), que permanece sin usar mientras el binding `DB` no
-  se declare.
+## Comandos
 
-Además, **RF10 / CUS06** (rúbrica versionada) ya está implementado en el prototipo sobre IndexedDB:
-borrador editable, **aprobación** que fija y bloquea la versión vigente (RN09), `estado_fuente`
-`simulacion|oficial`, fuente por criterio y requisitos por categoría destino. La pantalla
-**Rúbricas y requisitos** (`/rubrica`) permite gestionarlas y la convocatoria solo se aplica a una
-versión **aprobada**.
+| Comando | Uso |
+|---|---|
+| `npm run dev` | API y frontend con recarga durante desarrollo |
+| `npm run build` / `npm start` | Compilar / ejecutar ambos componentes localmente |
+| `npm stop` | Solicitar el cierre conjunto de esta instancia |
+| `npm run typecheck` | Comprobación de tipos |
+| `npm test` | 27 pruebas originales de dominio e IndexedDB en memoria |
+| `npm run test:postgres` | Integración y navegador sobre `legajos_unp_test`, puertos 5183/5184 |
+| `npm run test:e2e` | Solo los recorridos de navegador de PostgreSQL |
+| `npm run db:backup` | Respaldo consistente de la base y documentos, con manifiesto y ZIP portable |
+| `npm run db:verify -- ruta.zip` | Comparar la base con el respaldo importado, sin modificarla |
+| `npm run db:diagram` | Regenerar PlantUML desde el catálogo PostgreSQL real |
+| `npm run db:setup` | Preparar roles/base y aplicar migraciones pendientes |
+| `npm run db:accounts` | Crear solo las cuentas iniciales que falten |
+| `npm run db:import -- ruta.zip` | Importación inicial controlada; no sobrescribe otra copia |
 
-Para ver la comparación detallada con el documento y el plan de alineación, consulta
-[docs/PLAN-ALINEACION-ANALISIS-V2.md](docs/PLAN-ALINEACION-ANALISIS-V2.md).
+Las pruebas PostgreSQL reinician exclusivamente `legajos_unp_test` y comprueban el nombre antes de modificarla. Deben ejecutarse con la aplicación detenida: Vinext mantiene un bloqueo de desarrollo por proyecto. El directorio documental de pruebas es `.local/test-data`.
 
----
+## Configuración y respaldo
 
-## 📚 Documentación Técnica Adicional
+`.env.local` contiene las conexiones privadas del propietario y de la aplicación; no se envía al cliente ni se incluye en Git. `legajo_owner` aplica migraciones y crea respaldos. `legajo_app` tiene permisos de datos, sin administración ni DDL. El usuario administrador de PostgreSQL solo se utilizó en la preparación. Las cuentas técnicas de pruebas son independientes.
 
-- [Plan de Alineación con el Análisis v2](docs/PLAN-ALINEACION-ANALISIS-V2.md): Concordancia del proyecto con el documento de análisis v2.0 y plan para alinearlo.
-- [API y Arquitectura Futura](docs/API-Y-ARQUITECTURA.md): Plan de migración hacia servicios backend distribuidos, base de datos relacional y autenticación JWT/OAuth.
-- [Guía de Sustentación](docs/GUIA-SUSTENTACION-ACTUALIZADA.md): Secuencia y casos de prueba preparados para evaluación académica.
-- [Matriz de Trazabilidad](docs/TRAZABILIDAD.md): Mapeo entre requisitos funcionales, casos de uso y módulos implementados.
-- [Informe de Validación y Pruebas](docs/VALIDACION.md): Resultados de las pruebas de regresión, integración y accesibilidad.
+`npm run db:backup` genera `data/backups/postgres-<fecha>/` con `database.dump`, `documents/`, `manifest.json` y `legajo-backup.zip`, usando una misma instantánea PostgreSQL. Conserva también `.env.local` y las credenciales privadas en tu copia de seguridad protegida. La restauración y sus comprobaciones están explicadas en [OPERACION-POSTGRESQL.md](docs/OPERACION-POSTGRESQL.md).
 
----
+## Arquitectura y esquema
 
-## 📄 Licencia
+- [API implementada](docs/API-Y-ARQUITECTURA.md)
+- [Resultados de validación PostgreSQL](docs/VALIDACION-POSTGRESQL.md)
+- [Operación, preparación y recuperación](docs/OPERACION-POSTGRESQL.md)
+- [Diagrama PostgreSQL completo · PlantUML](docs/diagramas/postgresql-legajos-unp.puml)
+- [Diagrama renderizado · SVG](docs/diagramas/postgresql-legajos-unp.svg)
+- `db/schema.pg.ts` y `drizzle-pg/0000_legajos.sql`: 35 tablas del dominio, cuatro auxiliares y control de migraciones.
+- `db/schema.ts` y `drizzle/`: esquema SQLite/D1 conservado como referencia e integración de Sites; no se usa para la persistencia local activa.
 
-Este proyecto fue desarrollado con fines estrictamente académicos para la carrera de Ingeniería Informática de la **Universidad Nacional de Piura (UNP)**.
+Cada comando escribe solo las filas afectadas y su auditoría dentro de una transacción. PostgreSQL protege los históricos, las rúbricas aprobadas, la categoría inmediata superior y la unicidad de propuestas por plaza. Los conflictos de revisión devuelven HTTP 409 y los cierres admiten reintentos idempotentes.
+
+Los datos, reglas y decisiones son una simulación académica; no conceden ascensos ni acreditan designaciones institucionales. No hay publicación en Internet ni integración institucional OIDC. El MCP PostgreSQL sigue siendo de solo lectura.

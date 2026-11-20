@@ -24,6 +24,8 @@
 /.codex/
 /outputs/
 /work/
+/.local/
+/data/
 
 # Temporary and local scratch files
 /_tmp/

@@ -1,0 +1,493 @@
+@startuml
+' Fuente: drizzle/0000_legajo_promocion_unp.sql; 35 tablas, todas las columnas y FKs.
+' Los tipos físicos son los actuales de SQLite/D1. Para PostgreSQL, ver la guía.
+hide circle
+hide methods
+skinparam linetype ortho
+skinparam shadowing false
+skinparam roundcorner 8
+skinparam defaultFontName Segoe UI
+skinparam defaultFontSize 12
+skinparam classAttributeIconSize 0
+skinparam packageStyle rectangle
+skinparam nodesep 35
+skinparam ranksep 65
+title UNP · Modelo relacional completo (35 tablas)\nEsquema físico actual SQLite / Cloudflare D1
+
+package "A · Organización y seguridad" #EAF2FF {
+  entity "facultad" as facultad {
+    * id : text <<PK>>
+    --
+    * codigo : text <<UQ>>
+    * nombre : text <<UQ>>
+    * activo : integer
+  }
+  entity "departamento_academico" as departamento_academico {
+    * id : text <<PK>>
+    --
+    * facultad_id : text <<FK>>
+    * nombre : text
+    * activo : integer
+  }
+  entity "categoria_docente" as categoria_docente {
+    * id : integer <<PK>>
+    --
+    * nombre : text <<UQ>>
+    * orden : integer <<UQ>>
+  }
+  entity "dedicacion" as dedicacion {
+    * id : integer <<PK>>
+    --
+    * nombre : text <<UQ>>
+  }
+  entity "rol" as rol {
+    * id : integer <<PK>>
+    --
+    * codigo : text <<UQ>>
+    * nombre : text
+  }
+  entity "usuario" as usuario {
+    * id : text <<PK>>
+    --
+    * sub_externo : text <<UQ>>
+    * nombre_completo : text
+    * email : text <<UQ>>
+    * activo : integer
+    ultimo_acceso : text
+    * creado_en : text
+  }
+  entity "asignacion_rol" as asignacion_rol {
+    * id : text <<PK>>
+    --
+    * usuario_id : text <<FK>>
+    * rol_id : integer <<FK>>
+    facultad_id : text <<FK>>
+    departamento_id : text <<FK>>
+    * vigente_desde : text
+    vigente_hasta : text
+  }
+}
+
+package "B · Docente, legajo y evidencias" #E7F6EF {
+  entity "docente" as docente {
+    * id : text <<PK>>
+    --
+    usuario_id : text <<FK,UQ>>
+    * codigo : text <<UQ>>
+    * nombres : text
+    * apellidos : text
+    * email : text <<UQ>>
+    * departamento_id : text <<FK>>
+    * categoria_id : integer <<FK>>
+    * dedicacion_id : integer <<FK>>
+    * fecha_categoria : text
+    especialidad : text
+    * activo : integer
+    * version : integer
+    * creado_en : text
+    * actualizado_en : text
+  }
+  entity "legajo" as legajo {
+    * id : text <<PK>>
+    --
+    * docente_id : text <<FK,UQ>>
+    * fecha_apertura : text
+    observaciones : text
+    * creado_en : text
+  }
+  entity "tipo_merito" as tipo_merito {
+    * id : integer <<PK>>
+    --
+    * codigo : text <<UQ>>
+    * nombre : text
+    * grupo : text
+    * puntua : integer
+  }
+  entity "documento" as documento {
+    * id : text <<PK>>
+    --
+    * legajo_id : text <<FK>>
+    * subido_por : text <<FK>>
+    * nombre_original : text
+    * tipo_mime : text
+    * tamano_bytes : integer
+    * hash_sha256 : text
+    * clave_almacenamiento : text <<UQ>>
+    * version : integer
+    reemplaza_a : text <<FK>>
+    retener_hasta : text
+    * subido_en : text
+  }
+  entity "merito" as merito {
+    * id : text <<PK>>
+    --
+    * legajo_id : text <<FK>>
+    * tipo_merito_id : integer <<FK>>
+    * titulo : text
+    * institucion : text
+    * fecha_merito : text
+    * documento_id : text <<FK>>
+    * estado_revision : text
+    observacion : text
+    revisado_por : text <<FK>>
+    revisado_en : text
+    * version : integer
+    * creado_en : text
+    * actualizado_en : text
+  }
+  entity "revision_merito" as revision_merito {
+    * id : text <<PK>>
+    --
+    * merito_id : text <<FK>>
+    * revisor_id : text <<FK>>
+    * rol_id : integer <<FK>>
+    * accion : text
+    estado_anterior : text
+    * estado_posterior : text
+    documento_anterior_id : text <<FK>>
+    documento_posterior_id : text <<FK>>
+    nota : text
+    copia_antes : text
+    copia_despues : text
+    * ocurrido_en : text
+  }
+  entity "experiencia_laboral" as experiencia_laboral {
+    * id : text <<PK>>
+    --
+    * legajo_id : text <<FK>>
+    * institucion : text
+    * cargo : text
+    * fecha_inicio : text
+    fecha_fin : text
+    * documento_id : text <<FK>>
+    * actualizado_en : text
+  }
+}
+
+package "C · Convocatorias, rúbricas y plazas" #FFF4DD {
+  entity "rubrica" as rubrica {
+    * id : text <<PK>>
+    --
+    * version : text <<UQ>>
+    * nombre : text
+    * umbral : real
+    * puntaje_maximo : real
+    * estado_fuente : text
+    fuente_normativa : text
+    aprobada_en : text
+    * creada_por : text <<FK>>
+    * creada_en : text
+  }
+  entity "rubrica_criterio" as rubrica_criterio {
+    * id : text <<PK>>
+    --
+    * rubrica_id : text <<FK>>
+    * codigo : text
+    * nombre : text
+    tipo_merito_id : integer <<FK>>
+    * puntos_por_unidad : real
+    * tope : real
+    * fuente_referencia : text
+    * estado_fuente : text
+  }
+  entity "rubrica_requisito" as rubrica_requisito {
+    * id : text <<PK>>
+    --
+    * rubrica_id : text <<FK>>
+    * categoria_destino_id : integer <<FK>>
+    * grado_minimo_id : integer <<FK>>
+    * anios_minimos : integer
+    * investigaciones_minimas : integer
+    * exige_ratificacion : integer
+    * fuente_referencia : text
+  }
+  entity "plaza" as plaza {
+    * id : text <<PK>>
+    --
+    * codigo : text <<UQ>>
+    * etiqueta : text
+    * departamento_id : text <<FK>>
+    * categoria_id : integer <<FK>>
+    * dedicacion_id : integer <<FK>>
+    * habilitada : integer
+    * creada_en : text
+  }
+  entity "convocatoria" as convocatoria {
+    * id : text <<PK>>
+    --
+    * codigo : text <<UQ>>
+    * nombre : text
+    * fecha_inicio : text
+    * fecha_fin : text
+    * estado : text
+    * rubrica_id : text <<FK>>
+    resolucion_referencia : text
+    recepcion_cerrada_en : text
+    * creada_por : text <<FK>>
+    * version : integer
+    * creada_en : text
+  }
+  entity "convocatoria_plaza" as convocatoria_plaza {
+    * convocatoria_id : text <<PK,FK>>
+    * plaza_id : text <<PK,FK>>
+  }
+  entity "comision_evaluadora" as comision_evaluadora {
+    * id : text <<PK>>
+    --
+    * convocatoria_id : text <<FK>>
+    facultad_id : text <<FK>>
+    * nombre : text
+    resolucion_designacion : text
+  }
+  entity "miembro_comision" as miembro_comision {
+    * comision_id : text <<PK,FK>>
+    * usuario_id : text <<PK,FK>>
+    --
+    * cargo : text
+  }
+}
+
+package "D · Solicitud y evaluación" #F0EAFF {
+  entity "solicitud_promocion" as solicitud_promocion {
+    * id : text <<PK>>
+    --
+    * codigo : text <<UQ>>
+    * docente_id : text <<FK>>
+    * convocatoria_id : text <<FK>>
+    * plaza_id : text <<FK>>
+    * categoria_origen_id : integer <<FK>>
+    * categoria_destino_id : integer <<FK>>
+    * estado : text
+    nota : text
+    presentada_en : text
+    * version : integer
+    * creada_en : text
+    * actualizada_en : text
+  }
+  entity "expediente_item" as expediente_item {
+    * solicitud_id : text <<PK,FK>>
+    * merito_id : text <<PK,FK>>
+    --
+    * documento_id : text <<FK>>
+    * incorporado_en : text
+  }
+  entity "observacion_solicitud" as observacion_solicitud {
+    * id : text <<PK>>
+    --
+    * solicitud_id : text <<FK>>
+    * autor_id : text <<FK>>
+    * texto : text
+    * creada_en : text
+    subsanada_en : text
+  }
+  entity "solicitud_historial_estado" as solicitud_historial_estado {
+    * id : integer <<PK>>
+    --
+    * solicitud_id : text <<FK>>
+    estado_anterior : text
+    * estado_nuevo : text
+    * usuario_id : text <<FK>>
+    motivo : text
+    * cambiado_en : text
+  }
+  entity "evaluacion" as evaluacion {
+    * id : text <<PK>>
+    --
+    * solicitud_id : text <<FK,UQ>>
+    * rubrica_id : text <<FK>>
+    * comision_id : text <<FK>>
+    * evaluador_id : text <<FK>>
+    * puntaje_total : real
+    * umbral_aplicado : real
+    * plaza_disponible : integer
+    * resultado : text
+    * fundamento : text
+    * clave_idempotencia : text <<UQ>>
+    * instantanea_docente : text
+    instantanea_plaza : text
+    * instantanea_convocatoria : text
+    * cerrada_en : text
+  }
+  entity "evaluacion_criterio" as evaluacion_criterio {
+    * id : text <<PK>>
+    --
+    * evaluacion_id : text <<FK>>
+    * rubrica_criterio_id : text <<FK>>
+    * etiqueta : text
+    * puntaje : real
+    * tope : real
+    detalle : text
+  }
+  entity "evaluacion_requisito" as evaluacion_requisito {
+    * id : text <<PK>>
+    --
+    * evaluacion_id : text <<FK>>
+    * etiqueta : text
+    * cumple : integer
+    detalle : text
+  }
+  entity "evaluacion_evidencia" as evaluacion_evidencia {
+    * evaluacion_id : text <<PK,FK>>
+    * merito_id : text <<PK,FK>>
+    --
+    * documento_id : text <<FK>>
+    * hash_sha256 : text
+    * estado_revision : text
+  }
+}
+
+package "E · Propuesta y decisión" #FFECEF {
+  entity "propuesta" as propuesta {
+    * id : text <<PK>>
+    --
+    * solicitud_id : text <<FK,UQ>>
+    * evaluacion_id : text <<FK,UQ>>
+    * convocatoria_id : text <<FK>>
+    * plaza_id : text <<FK>>
+    * estado : text
+    * informe : text
+    * creada_por : text <<FK>>
+    * version : integer
+    * creada_en : text
+    * actualizada_en : text
+  }
+  entity "propuesta_orden_merito" as propuesta_orden_merito {
+    * propuesta_id : text <<PK,FK>>
+    * solicitud_id : text <<PK,FK>>
+    --
+    * evaluacion_id : text <<FK>>
+    * docente_id : text <<FK>>
+    * nombre_docente : text
+    * puntaje : real
+    * resultado : text
+    puesto : integer
+    * empate : integer
+  }
+  entity "propuesta_evento" as propuesta_evento {
+    * id : text <<PK>>
+    --
+    * propuesta_id : text <<FK>>
+    * etapa : text
+    * usuario_id : text <<FK>>
+    * rol_id : integer <<FK>>
+    * referencia : text
+    documento_id : text <<FK>>
+    nota : text
+    * ocurrido_en : text
+  }
+}
+
+package "F · Auditoría" #E9F5F9 {
+  entity "auditoria_evento" as auditoria_evento {
+    * id : integer <<PK>>
+    --
+    * ocurrido_en : text
+    usuario_id : text <<FK>>
+    rol_id : integer <<FK>>
+    docente_id : text <<FK>>
+    * accion : text
+    * entidad : text
+    * mensaje : text
+    motivo : text
+    id_solicitud_http : text
+  }
+  entity "auditoria_cambio" as auditoria_cambio {
+    * id : integer <<PK>>
+    --
+    * auditoria_id : integer <<FK>>
+    * entidad : text
+    * registro_id : text
+    antes : text
+    despues : text
+  }
+}
+
+facultad ||--o{ departamento_academico : facultad_id
+departamento_academico |o--o{ asignacion_rol : departamento_id
+facultad |o--o{ asignacion_rol : facultad_id
+rol ||--o{ asignacion_rol : rol_id
+usuario ||--o{ asignacion_rol : usuario_id
+dedicacion ||--o{ docente : dedicacion_id
+categoria_docente ||--o{ docente : categoria_id
+departamento_academico ||--o{ docente : departamento_id
+usuario |o--o| docente : usuario_id
+docente ||--o| legajo : docente_id
+documento |o--o{ documento : reemplaza_a
+usuario ||--o{ documento : subido_por
+legajo ||--o{ documento : legajo_id
+usuario |o--o{ merito : revisado_por
+documento ||--o{ merito : documento_id
+tipo_merito ||--o{ merito : tipo_merito_id
+legajo ||--o{ merito : legajo_id
+documento |o--o{ revision_merito : documento_posterior_id
+documento |o--o{ revision_merito : documento_anterior_id
+rol ||--o{ revision_merito : rol_id
+usuario ||--o{ revision_merito : revisor_id
+merito ||--o{ revision_merito : merito_id
+documento ||--o{ experiencia_laboral : documento_id
+legajo ||--o{ experiencia_laboral : legajo_id
+usuario ||--o{ rubrica : creada_por
+tipo_merito |o--o{ rubrica_criterio : tipo_merito_id
+rubrica ||--o{ rubrica_criterio : rubrica_id
+tipo_merito ||--o{ rubrica_requisito : grado_minimo_id
+categoria_docente ||--o{ rubrica_requisito : categoria_destino_id
+rubrica ||--o{ rubrica_requisito : rubrica_id
+dedicacion ||--o{ plaza : dedicacion_id
+categoria_docente ||--o{ plaza : categoria_id
+departamento_academico ||--o{ plaza : departamento_id
+usuario ||--o{ convocatoria : creada_por
+rubrica ||--o{ convocatoria : rubrica_id
+plaza ||--o{ convocatoria_plaza : plaza_id
+convocatoria ||--o{ convocatoria_plaza : convocatoria_id
+facultad |o--o{ comision_evaluadora : facultad_id
+convocatoria ||--o{ comision_evaluadora : convocatoria_id
+usuario ||--o{ miembro_comision : usuario_id
+comision_evaluadora ||--o{ miembro_comision : comision_id
+convocatoria_plaza ||--o{ solicitud_promocion : convocatoria_id, plaza_id
+categoria_docente ||--o{ solicitud_promocion : categoria_destino_id
+categoria_docente ||--o{ solicitud_promocion : categoria_origen_id
+docente ||--o{ solicitud_promocion : docente_id
+documento ||--o{ expediente_item : documento_id
+merito ||--o{ expediente_item : merito_id
+solicitud_promocion ||--o{ expediente_item : solicitud_id
+usuario ||--o{ observacion_solicitud : autor_id
+solicitud_promocion ||--o{ observacion_solicitud : solicitud_id
+usuario ||--o{ solicitud_historial_estado : usuario_id
+solicitud_promocion ||--o{ solicitud_historial_estado : solicitud_id
+usuario ||--o{ evaluacion : evaluador_id
+comision_evaluadora ||--o{ evaluacion : comision_id
+rubrica ||--o{ evaluacion : rubrica_id
+solicitud_promocion ||--o| evaluacion : solicitud_id
+rubrica_criterio ||--o{ evaluacion_criterio : rubrica_criterio_id
+evaluacion ||--o{ evaluacion_criterio : evaluacion_id
+evaluacion ||--o{ evaluacion_requisito : evaluacion_id
+documento ||--o{ evaluacion_evidencia : documento_id
+merito ||--o{ evaluacion_evidencia : merito_id
+evaluacion ||--o{ evaluacion_evidencia : evaluacion_id
+convocatoria_plaza ||--o{ propuesta : convocatoria_id, plaza_id
+usuario ||--o{ propuesta : creada_por
+evaluacion ||--o| propuesta : evaluacion_id
+solicitud_promocion ||--o| propuesta : solicitud_id
+docente ||--o{ propuesta_orden_merito : docente_id
+evaluacion ||--o{ propuesta_orden_merito : evaluacion_id
+solicitud_promocion ||--o{ propuesta_orden_merito : solicitud_id
+propuesta ||--o{ propuesta_orden_merito : propuesta_id
+documento |o--o{ propuesta_evento : documento_id
+rol ||--o{ propuesta_evento : rol_id
+usuario ||--o{ propuesta_evento : usuario_id
+propuesta ||--o{ propuesta_evento : propuesta_id
+docente |o--o{ auditoria_evento : docente_id
+rol |o--o{ auditoria_evento : rol_id
+usuario |o--o{ auditoria_evento : usuario_id
+auditoria_evento ||--o{ auditoria_cambio : auditoria_id
+
+legend bottom left
+  PK = clave primaria; FK = clave foránea; UQ = unicidad de una columna.
+  * = NOT NULL. Sin * = admite NULL. Las PK compuestas incluyen varios campos PK.
+  || = uno; |o / o| = cero o uno; o{ = cero o muchos.
+  Cardinalidades derivadas de FK, NULL y claves únicas, sin imponer existencia de hijos.
+  Una etiqueta con dos campos representa una sola FK compuesta.
+  No se muestran todos los CHECK, índices ni triggers; consultar el SQL fuente.
+  Los binarios de documento se guardan fuera de la BD; aquí solo sus metadatos.
+endlegend
+@enduml

@@ -1,0 +1,234 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<title>Conexión de los diagramas de colaboración con las pantallas · Legajo UNP</title>
+<style>
+  @page { size: A4; margin: 14mm 12mm 16mm 12mm; }
+  :root{
+    --ink:#16283a; --muted:#5b7286; --line:#d7e0e8; --teal:#0f766e; --teal2:#115e59;
+    --soft:#f2f7f9; --warn:#fdf6e3; --warnline:#e6c07b; --ok:#e8f6f1; --soon:#f4f5f7;
+  }
+  * { box-sizing:border-box; }
+  body { font-family:"Segoe UI", Roboto, Helvetica, Arial, sans-serif; color:var(--ink); margin:0; font-size:10.5px; line-height:1.45; }
+  h1 { font-size:23px; margin:0 0 2px; letter-spacing:-.3px; }
+  h2 { font-size:13.5px; margin:20px 0 8px; padding-bottom:4px; border-bottom:2px solid var(--teal); color:var(--teal2); }
+  h3 { font-size:11.5px; margin:14px 0 6px; color:var(--ink); }
+  p { margin:6px 0; }
+  small { color:var(--muted); }
+
+  header.cover { border-bottom:3px solid var(--teal); padding-bottom:10px; margin-bottom:6px; }
+  .eyebrow { text-transform:uppercase; letter-spacing:2px; font-size:9px; font-weight:700; color:var(--teal); }
+  .sub { color:var(--muted); font-size:10.5px; }
+  .meta { display:flex; gap:18px; flex-wrap:wrap; margin-top:8px; font-size:9.5px; color:var(--muted); }
+  .meta b { color:var(--ink); }
+
+  table { width:100%; border-collapse:collapse; margin:6px 0 10px; page-break-inside:auto; }
+  th, td { border:1px solid var(--line); padding:4px 6px; vertical-align:top; text-align:left; }
+  th { background:var(--soft); color:var(--teal2); font-size:9.5px; text-transform:uppercase; letter-spacing:.4px; }
+  tbody tr:nth-child(even) td { background:#fafcfd; }
+  tr { page-break-inside:avoid; }
+  td.c { text-align:center; white-space:nowrap; }
+  code, .mono { font-family:Consolas, "Cascadia Mono", Menlo, monospace; font-size:9.2px; }
+  .code { color:var(--teal2); font-weight:600; }
+  .ent { color:#5b3d8a; }
+
+  .badge { display:inline-block; padding:1px 6px; border-radius:9px; font-size:8.6px; font-weight:700; border:1px solid; white-space:nowrap; }
+  .b-ok { background:var(--ok); color:#0b6b52; border-color:#9dd9c6; }
+  .b-partial { background:var(--warn); color:#8a6a12; border-color:var(--warnline); }
+  .b-soon { background:var(--soon); color:#6b7280; border-color:#cbd5e1; }
+
+  .chain { display:flex; flex-wrap:wrap; align-items:stretch; gap:6px; margin:10px 0 12px; }
+  .node { border:1.5px solid var(--teal); border-radius:9px; padding:7px 9px; min-width:120px; background:#fff; }
+  .node b { display:block; font-size:10px; }
+  .node small { display:block; font-size:8.8px; }
+  .node.actor { border-style:solid; background:#eef7f5; }
+  .node.iu { border-color:#0e7490; background:#eef8fb; }
+  .node.ctrl { border-color:#7c3aed; background:#f5f1fd; }
+  .node.ent { border-color:#b45309; background:#fef8ec; }
+  .node.aud { border-color:#b91c1c; background:#fdf0f0; }
+  .arrow { align-self:center; color:var(--muted); font-weight:700; }
+
+  .callout { background:var(--soft); border-left:4px solid var(--teal); padding:8px 10px; border-radius:0 6px 6px 0; margin:8px 0; }
+  .callout.warn { background:var(--warn); border-left-color:var(--warnline); }
+  ol.legend { margin:6px 0 0 16px; padding:0; }
+  ol.legend li { margin:2px 0; }
+  .avoid { page-break-inside:avoid; }
+  .newpage { page-break-before:always; }
+  footer { margin-top:14px; border-top:1px solid var(--line); padding-top:6px; font-size:8.6px; color:var(--muted); }
+</style>
+</head>
+<body>
+
+<header class="cover">
+  <div class="eyebrow">Sistema de Legajo y Promoción Docente · UNP</div>
+  <h1>Conexión entre los diagramas de colaboración y las pantallas</h1>
+  <div class="sub">Cómo cada caso de uso del Análisis del Sistema v2.0 se traduce en un diagrama de colaboración (UML · Rational Rose) y en una pantalla del prototipo.</div>
+  <div class="meta">
+    <span><b>Curso:</b> Análisis y Diseño de Sistemas 2</span>
+    <span><b>Referencia:</b> Analisis_legajo_promocion_UNP_v2.pdf (CUS01–CUS18, §5)</span>
+    <span><b>Modelo:</b> Rational Rose · vista <span class="mono">Diagramas de Colaboración</span></span>
+    <span><b>Prototipo:</b> Next.js + IndexedDB (sin BD conectada)</span>
+  </div>
+</header>
+
+<h2>1. Cómo se conecta un diagrama con una pantalla</h2>
+<p>Cada caso de uso tiene <b>un diagrama de colaboración</b> en Rational Rose. Ese diagrama y su pantalla comparten la misma cadena de responsabilidades: el <b>actor</b> entra por la sesión, la <b>frontera</b> (<span class="mono">IU:</span>) es la pantalla, el <b>controlador coordinador</b> (<span class="mono">CC_</span>) es el método del servicio de la aplicación y las <b>entidades</b> (<span class="mono">«entity»</span>) son las colecciones del prototipo y las tablas del modelo relacional.</p>
+
+<div class="chain">
+  <div class="node actor"><b>: Docente</b><small>actor · sesión / perfil (/login)</small></div>
+  <div class="arrow">→</div>
+  <div class="node iu"><b>IU: Presentar Solicitud</b><small>frontera · pantalla /solicitudes</small></div>
+  <div class="arrow">→</div>
+  <div class="node ctrl"><b>CC_PresentarSolicitud</b><small>control · LegajoService.saveRequest()</small></div>
+  <div class="arrow">→</div>
+  <div class="node ent"><b>:SolicitudPromocion</b><small>entidad · solicitud_promocion</small></div>
+  <div class="arrow">→</div>
+  <div class="node aud"><b>:AuditoriaEvento</b><small>entidad · auditoria_evento</small></div>
+</div>
+
+<div class="callout">
+  <b>Reglas de trazabilidad</b>
+  <ol class="legend">
+    <li>Un caso de uso <b>⇒ un diagrama de colaboración</b> nombrado <span class="mono">DC_CUSxx_NombreCorto</span>.</li>
+    <li>Al pulsar <b>F5</b> en Rational Rose se genera automáticamente el diagrama de secuencia <span class="mono">DC_CUSxx_NombreCorto_SD</span>.</li>
+    <li>La frontera <span class="mono">IU:</span> corresponde a <b>una pantalla o pestaña</b> del prototipo (una ruta).</li>
+    <li>El coordinador <span class="mono">CC_</span> corresponde a <b>un método</b> de <span class="mono">LegajoService</span> (o a una consulta de solo lectura).</li>
+    <li>Toda operación que modifica datos termina en <span class="mono">:AuditoriaEvento</span> (trazabilidad, RNF02).</li>
+  </ol>
+</div>
+
+<h2>2. Cuadro maestro · caso de uso ⇒ diagrama ⇒ pantalla</h2>
+<table>
+  <thead>
+    <tr>
+      <th style="width:8%">CUS</th>
+      <th style="width:23%">Caso de uso</th>
+      <th style="width:15%">Actor(es)</th>
+      <th style="width:20%">Diagrama de colaboración → secuencia (F5)</th>
+      <th style="width:26%">Pantalla del prototipo (ruta)</th>
+      <th style="width:8%">Estado</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr><td class="mono">CUS01</td><td>Registrar y editar ficha del docente</td><td>Personal de legajos</td><td class="mono">DC_CUS01_GestionarDocente → _SD</td><td>Docentes y legajos <span class="mono">/docentes</span></td><td class="c"><span class="badge b-ok">✅</span></td></tr>
+    <tr><td class="mono">CUS02</td><td>Registrar mérito y evidencia</td><td>Docente · Personal de legajos</td><td class="mono">DC_CUS02_RegistrarMerito → _SD</td><td>Legajo del docente <span class="mono">/legajos/:id</span> · pestaña «Méritos»</td><td class="c"><span class="badge b-ok">✅</span></td></tr>
+    <tr><td class="mono">CUS03</td><td>Registrar trayectoria laboral</td><td>Docente · Personal de legajos</td><td class="mono">DC_CUS03_RegistrarTrayectoria → _SD</td><td>Legajo del docente <span class="mono">/legajos/:id</span> · pestaña «Grados y experiencia»</td><td class="c"><span class="badge b-ok">✅</span></td></tr>
+    <tr><td class="mono">CUS04</td><td>Verificar u observar mérito</td><td>Personal de legajos · Comisión</td><td class="mono">DC_CUS04_VerificarMerito → _SD</td><td>Revisión documental <span class="mono">/revision</span></td><td class="c"><span class="badge b-ok">✅</span></td></tr>
+    <tr><td class="mono">CUS05</td><td>Corregir mérito observado</td><td>Docente</td><td class="mono">DC_CUS05_CorregirMerito → _SD</td><td>Legajo del docente <span class="mono">/legajos/:id</span> · «Méritos» (tarjeta observada)</td><td class="c"><span class="badge b-ok">✅</span></td></tr>
+    <tr><td class="mono">CUS06</td><td>Gestionar rúbrica y requisitos</td><td>Personal de legajos</td><td class="mono">DC_CUS06_GestionarRubrica → _SD</td><td>Rúbricas y requisitos <span class="mono">/rubrica</span></td><td class="c"><span class="badge b-ok">✅</span></td></tr>
+    <tr><td class="mono">CUS07</td><td>Gestionar convocatoria y plazas</td><td>Personal de legajos</td><td class="mono">DC_CUS07_GestionarConvocatoria → _SD</td><td>Convocatorias <span class="mono">/convocatorias</span></td><td class="c"><span class="badge b-ok">✅</span></td></tr>
+    <tr><td class="mono">CUS08</td><td>Designar comisión evaluadora</td><td>Personal de legajos</td><td class="mono">DC_CUS08_DesignarComision → _SD</td><td>— Sin pantalla en el prototipo</td><td class="c"><span class="badge b-soon">⛔</span></td></tr>
+    <tr><td class="mono">CUS09</td><td>Presentar solicitud de promoción</td><td>Docente</td><td class="mono">DC_CUS09_PresentarSolicitud → _SD</td><td>Solicitudes <span class="mono">/solicitudes</span></td><td class="c"><span class="badge b-ok">✅</span></td></tr>
+    <tr><td class="mono">CUS10</td><td>Observar y devolver solicitud</td><td>Personal de legajos · Comisión</td><td class="mono">DC_CUS10_ObservarSolicitud → _SD</td><td>Solicitudes <span class="mono">/solicitudes</span> · acción «Observar»</td><td class="c"><span class="badge b-ok">✅</span></td></tr>
+    <tr><td class="mono">CUS11</td><td>Evaluar y cerrar evaluación</td><td>Comisión evaluadora</td><td class="mono">DC_CUS11_EvaluarSolicitud → _SD</td><td>Evaluaciones <span class="mono">/evaluaciones/:id</span></td><td class="c"><span class="badge b-ok">✅</span></td></tr>
+    <tr><td class="mono">CUS12</td><td>Consultar orden de mérito</td><td>Comisión · Decanato</td><td class="mono">DC_CUS12_ConsultarOrdenMerito → _SD</td><td>Orden de mérito <span class="mono">/orden-merito</span></td><td class="c"><span class="badge b-ok">✅</span></td></tr>
+    <tr><td class="mono">CUS13</td><td>Preparar propuesta</td><td>Decanato</td><td class="mono">DC_CUS13_PrepararPropuesta → _SD</td><td>Orden de mérito <span class="mono">/orden-merito</span> · «Preparar propuesta»</td><td class="c"><span class="badge b-ok">✅</span></td></tr>
+    <tr><td class="mono">CUS14</td><td>Remitir y elevar propuesta</td><td>Decanato · Consejo de Facultad</td><td class="mono">DC_CUS14_RemitirPropuesta → _SD</td><td>Propuestas y decisiones <span class="mono">/propuestas</span></td><td class="c"><span class="badge b-ok">✅</span></td></tr>
+    <tr><td class="mono">CUS15</td><td>Registrar decisión</td><td>Consejo Universitario</td><td class="mono">DC_CUS15_RegistrarDecision → _SD</td><td>Propuestas y decisiones <span class="mono">/propuestas</span></td><td class="c"><span class="badge b-ok">✅</span></td></tr>
+    <tr><td class="mono">CUS16</td><td>Consultar propuestas y decisiones</td><td>Docente · Decanato · Consejos</td><td class="mono">DC_CUS16_ConsultarPropuestas → _SD</td><td>Panel de gestión <span class="mono">/</span> y Propuestas <span class="mono">/propuestas</span></td><td class="c"><span class="badge b-ok">✅</span></td></tr>
+    <tr><td class="mono">CUS17</td><td>Consultar historial y auditoría</td><td>Docente (propio) · Personal de legajos</td><td class="mono">DC_CUS17_ConsultarHistorial → _SD</td><td>Legajo del docente <span class="mono">/legajos/:id</span> · pestaña «Historial» y Panel <span class="mono">/</span></td><td class="c"><span class="badge b-ok">✅</span></td></tr>
+    <tr><td class="mono">CUS18</td><td>Administrar usuarios y roles</td><td>Administrador del sistema</td><td class="mono">DC_CUS18_AdministrarUsuarios → _SD</td><td>— Sin pantalla; el portal <span class="mono">/login</span> simula la sesión por rol</td><td class="c"><span class="badge b-soon">⛔</span></td></tr>
+  </tbody>
+</table>
+<p><small><b>Leyenda:</b> <span class="badge b-ok">✅</span> recorrible en el prototipo &nbsp;·&nbsp; <span class="badge b-partial">🟡</span> parcial &nbsp;·&nbsp; <span class="badge b-soon">⛔</span> declarado en el modelo, sin pantalla (fase institucional).</small></p>
+
+<h2 class="newpage">3. Qué objetos del diagrama existen en el prototipo</h2>
+<p>Esta tabla une el <b>diagrama de colaboración</b> con el <b>código y los datos</b>: la frontera es el formulario de la pantalla, el coordinador es el método del servicio y las entidades son las colecciones de IndexedDB (y su tabla equivalente en el modelo relacional entregado).</p>
+<table>
+  <thead>
+    <tr>
+      <th style="width:7%">CUS</th>
+      <th style="width:15%">Frontera (pantalla)</th>
+      <th style="width:26%">Coordinador → método del servicio</th>
+      <th style="width:52%">Entidades «entity» → tabla / colección</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr><td class="mono">CUS01</td><td class="mono">IU: Gestionar Docente</td><td class="mono">CC_GestionarDocente → saveTeacher()</td><td class="ent mono">:Docente → docente · :Facultad → facultad · :Departamento → departamento · :CategoriaDocente → categoria_docente</td></tr>
+    <tr><td class="mono">CUS02</td><td class="mono">IU: Registrar Mérito</td><td class="mono">CC_RegistrarMerito → saveMerit()</td><td class="ent mono">:Legajo → legajo · :Merito → merito · :TipoMerito → tipo_merito · :Documento → documento</td></tr>
+    <tr><td class="mono">CUS03</td><td class="mono">IU: Registrar Trayectoria</td><td class="mono">CC_RegistrarTrayectoria → saveExperience()</td><td class="ent mono">:ExperienciaLaboral → experiencia_laboral · :Legajo → legajo · :Documento → documento</td></tr>
+    <tr><td class="mono">CUS04</td><td class="mono">IU: Verificar Mérito</td><td class="mono">CC_VerificarMerito → review()</td><td class="ent mono">:Merito → merito · :RevisionMerito → revision_merito · :Documento → documento · :AuditoriaEvento → auditoria_evento</td></tr>
+    <tr><td class="mono">CUS05</td><td class="mono">IU: Corregir Mérito</td><td class="mono">CC_CorregirMerito → saveMerit(id)</td><td class="ent mono">:Merito → merito · :Documento → documento · :RevisionMerito → revision_merito</td></tr>
+    <tr><td class="mono">CUS06</td><td class="mono">IU: Gestionar Rúbrica</td><td class="mono">CC_GestionarRubrica → saveRubric() / approveRubric()</td><td class="ent mono">:Rubrica → rubrica · :RubricaCriterio → rubrica_criterio · :RubricaRequisito → rubrica_requisito</td></tr>
+    <tr><td class="mono">CUS07</td><td class="mono">IU: Gestionar Convocatoria</td><td class="mono">CC_GestionarConvocatoria → saveCall() / advanceCall()</td><td class="ent mono">:Convocatoria → convocatoria · :ConvocatoriaPlaza → convocatoria_plaza · :Plaza → plaza</td></tr>
+    <tr><td class="mono">CUS08</td><td class="mono">IU: Designar Comisión</td><td class="mono">CC_DesignarComision → (pendiente)</td><td class="ent mono">:ComisionEvaluadora → comision_evaluadora · :MiembroComision → miembro_comision</td></tr>
+    <tr><td class="mono">CUS09</td><td class="mono">IU: Presentar Solicitud</td><td class="mono">CC_PresentarSolicitud → saveRequest() / submit()</td><td class="ent mono">:SolicitudPromocion → solicitud_promocion · :ExpedienteItem → expediente_item · :SolicitudHistorialEstado → solicitud_historial_estado · :Convocatoria → convocatoria · :Plaza → plaza</td></tr>
+    <tr><td class="mono">CUS10</td><td class="mono">IU: Observar Solicitud</td><td class="mono">CC_ObservarSolicitud → observeRequest()</td><td class="ent mono">:SolicitudPromocion → solicitud_promocion · :ObservacionSolicitud → observacion_solicitud · :SolicitudHistorialEstado → solicitud_historial_estado</td></tr>
+    <tr><td class="mono">CUS11</td><td class="mono">IU: Evaluar Solicitud</td><td class="mono">CC_EvaluarSolicitud → closeEvaluation()</td><td class="ent mono">:Evaluacion → evaluacion · :EvaluacionCriterio → evaluacion_criterio · :EvaluacionRequisito → evaluacion_requisito · :EvaluacionEvidencia → evaluacion_evidencia · :Rubrica → rubrica</td></tr>
+    <tr><td class="mono">CUS12</td><td class="mono">IU: Consultar Orden de Mérito</td><td class="mono">CC_OrdenMerito → ranking() (consulta)</td><td class="ent mono">:Evaluacion → evaluacion · :PropuestaOrdenMerito → propuesta_orden_merito · :Plaza → plaza</td></tr>
+    <tr><td class="mono">CUS13</td><td class="mono">IU: Preparar Propuesta</td><td class="mono">CC_PrepararPropuesta → createProposal()</td><td class="ent mono">:Propuesta → propuesta · :PropuestaEvento → propuesta_evento · :Evaluacion → evaluacion · :Plaza → plaza</td></tr>
+    <tr><td class="mono">CUS14</td><td class="mono">IU: Remitir Propuesta</td><td class="mono">CC_RemitirPropuesta → advanceProposal("remitir" / "elevar")</td><td class="ent mono">:Propuesta → propuesta · :PropuestaEvento → propuesta_evento</td></tr>
+    <tr><td class="mono">CUS15</td><td class="mono">IU: Registrar Decisión</td><td class="mono">CC_RegistrarDecision → advanceProposal("aprobar" / "denegar")</td><td class="ent mono">:Propuesta → propuesta · :PropuestaEvento → propuesta_evento</td></tr>
+    <tr><td class="mono">CUS16</td><td class="mono">IU: Consultar Propuestas</td><td class="mono">CC_ConsultarPropuestas → snapshot() (consulta)</td><td class="ent mono">:Propuesta → propuesta · :PropuestaEvento → propuesta_evento · :Evaluacion → evaluacion</td></tr>
+    <tr><td class="mono">CUS17</td><td class="mono">IU: Consultar Historial</td><td class="mono">CC_ConsultarHistorial → snapshot() / reviews (consulta)</td><td class="ent mono">:AuditoriaEvento → auditoria_evento · :AuditoriaCambio → auditoria_cambio · :RevisionMerito → revision_merito · :SolicitudHistorialEstado → solicitud_historial_estado</td></tr>
+    <tr><td class="mono">CUS18</td><td class="mono">IU: Administrar Usuarios</td><td class="mono">CC_AdministrarUsuarios → (pendiente)</td><td class="ent mono">:Usuario → usuario · :Rol → rol · :AsignacionRol → asignacion_rol · :UnidadOrganica → unidad_organica</td></tr>
+  </tbody>
+</table>
+
+<h2>4. Mapa inverso · cada pantalla y sus casos de uso</h2>
+<table>
+  <thead>
+    <tr><th style="width:38%">Pantalla (componente y ruta)</th><th style="width:22%">Casos de uso</th><th style="width:40%">Diagramas de colaboración que la alimentan</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>Portal de acceso y sesión <span class="mono">/login</span> <small>(LoginView)</small></td><td class="mono">Sesión por actor (RNF01; apoyo a CUS18)</td><td class="mono">— (no es un CUS; habilita a los actores de todos los diagramas)</td></tr>
+    <tr><td>Panel de gestión <span class="mono">/</span> <small>(Dashboard)</small></td><td class="mono">CUS16 · CUS17</td><td class="mono">DC_CUS16 · DC_CUS17</td></tr>
+    <tr><td>Docentes y legajos <span class="mono">/docentes</span> <small>(Teachers)</small></td><td class="mono">CUS01</td><td class="mono">DC_CUS01</td></tr>
+    <tr><td>Legajo del docente <span class="mono">/legajos/:id</span> <small>(Dossier · pestañas Resumen, Grados y experiencia, Méritos, Documentos, Historial)</small></td><td class="mono">CUS02 · CUS03 · CUS05 · CUS17</td><td class="mono">DC_CUS02 · DC_CUS03 · DC_CUS05 · DC_CUS17</td></tr>
+    <tr><td>Revisión documental <span class="mono">/revision</span> <small>(Review)</small></td><td class="mono">CUS04</td><td class="mono">DC_CUS04</td></tr>
+    <tr><td>Solicitudes de promoción <span class="mono">/solicitudes</span> <small>(Requests)</small></td><td class="mono">CUS09 · CUS10</td><td class="mono">DC_CUS09 · DC_CUS10</td></tr>
+    <tr><td>Evaluaciones <span class="mono">/evaluaciones</span> y <span class="mono">/evaluaciones/:id</span> <small>(EvaluationView)</small></td><td class="mono">CUS11</td><td class="mono">DC_CUS11</td></tr>
+    <tr><td>Convocatorias <span class="mono">/convocatorias</span> <small>(Calls)</small></td><td class="mono">CUS07</td><td class="mono">DC_CUS07</td></tr>
+    <tr><td>Orden de mérito <span class="mono">/orden-merito</span> <small>(MeritOrder)</small></td><td class="mono">CUS12 · CUS13</td><td class="mono">DC_CUS12 · DC_CUS13</td></tr>
+    <tr><td>Propuestas y decisiones <span class="mono">/propuestas</span> <small>(Proposals)</small></td><td class="mono">CUS14 · CUS15 · CUS16</td><td class="mono">DC_CUS14 · DC_CUS15 · DC_CUS16</td></tr>
+    <tr><td>Rúbricas y requisitos <span class="mono">/rubrica</span> <small>(Rubric)</small></td><td class="mono">CUS06</td><td class="mono">DC_CUS06</td></tr>
+  </tbody>
+</table>
+
+<h2>5. Ejemplo detallado · CUS09 «Presentar solicitud de promoción»</h2>
+<p>Así se leen juntos el diagrama de colaboración y la pantalla <span class="mono">/solicitudes</span>:</p>
+<table>
+  <thead>
+    <tr><th style="width:20%">Mensaje (UML)</th><th style="width:22%">Objeto destino</th><th style="width:30%">Elemento del prototipo</th><th style="width:28%">Dato (tabla / colección)</th></tr>
+  </thead>
+  <tbody>
+    <tr><td class="mono">1: presentarSolicitud()</td><td class="mono">IU: Presentar Solicitud</td><td>Formulario «Nueva solicitud» · <span class="mono">/solicitudes</span> (RequestForm)</td><td class="mono">—</td></tr>
+    <tr><td class="mono">2: buscarLegajo() · 4: VarLegajo</td><td class="mono">:Legajo</td><td class="mono">LegajoService.saveRequest()</td><td class="mono">legajo</td></tr>
+    <tr><td class="mono">3: verificarRequisitos()</td><td class="mono">:Rubrica · :RubricaRequisito</td><td><span class="mono">evaluate()</span> con la rúbrica congelada de la convocatoria</td><td class="mono">rubrica_requisito</td></tr>
+    <tr><td class="mono">5: verificarPlaza()</td><td class="mono">:ConvocatoriaPlaza · :Plaza</td><td>Valida categoría destino y plaza pertinente</td><td class="mono">plaza · convocatoria_plaza</td></tr>
+    <tr><td class="mono">6: registrarEstado("presentada")</td><td class="mono">:SolicitudHistorialEstado</td><td>Estado de la solicitud <span class="badge b-partial">🟡 parcial</span> (el historial de estados es un pendiente declarado)</td><td class="mono">solicitud_historial_estado</td></tr>
+    <tr><td class="mono">7: Grabar()</td><td class="mono">:SolicitudPromocion</td><td>Colección de solicitudes del prototipo</td><td class="mono">solicitud_promocion</td></tr>
+    <tr><td class="mono">8: auditar()</td><td class="mono">:AuditoriaEvento</td><td>Entrada de auditoría (identidad, fecha, detalle)</td><td class="mono">auditoria_evento</td></tr>
+  </tbody>
+</table>
+
+<div class="callout warn">
+  <b>Notas de alcance</b>
+  <ul class="legend">
+    <li><b>CUS08 y CUS18</b> sí tienen diagrama de colaboración, pero el prototipo no les da pantalla: son fase institucional (requieren usuarios/roles reales y designación de comisión).</li>
+    <li><b>CUS06</b> pasó de ser solo consulta a tener edición y aprobación de rúbricas (borrador → aprobada, con bloqueo RN09).</li>
+    <li><b>SolicitudHistorialEstado</b> (historial de estados de la solicitud) y <b>AuditoriaCambio</b> existen en el modelo relacional; en el prototipo la trazabilidad se cubre de forma parcial (RF16/RNF02).</li>
+    <li>El prototipo funciona con <b>IndexedDB</b>; las tablas citadas son el modelo relacional entregado en <span class="mono">drizzle/0000_legajo_promocion_unp.sql</span>, listo para conectarse.</li>
+  </ul>
+</div>
+
+<div class="avoid">
+<h2>6. Lista de verificación para Rational Rose</h2>
+<ol class="legend">
+  <li>Existe un diagrama <span class="mono">DC_CUSxx_NombreCorto</span> por cada CUS01–CUS18.</li>
+  <li>El nombre de la frontera <span class="mono">IU:</span> coincide con la pantalla de la sección 2.</li>
+  <li>Cada diagrama incluye actor → IU → CC_ → entidades → <span class="mono">:AuditoriaEvento</span>.</li>
+  <li>Los mensajes están numerados 1..n y los retornos etiquetados (<span class="mono">VarX</span>).</li>
+  <li>Se pulsó <b>F5</b> y existe el diagrama de secuencia <span class="mono">DC_CUSxx_NombreCorto_SD</span>.</li>
+  <li>Los tres CUS de la fase institucional (CUS08, CUS18) quedan marcados como «sin pantalla».</li>
+</ol>
+</div>
+
+<footer>
+  Sistema de Legajo y Promoción Docente · Universidad Nacional de Piura — documento de trabajo para la sustentación del curso de Análisis y Diseño de Sistemas 2.
+  La rúbrica y los datos son de demostración; el prototipo no constituye un trámite institucional vinculante.
+</footer>
+
+</body>
+</html>

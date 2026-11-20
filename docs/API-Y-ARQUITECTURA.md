@@ -1,113 +1,83 @@
-# Preparación de API, autenticación y persistencia
+# API y arquitectura implementadas · PostgreSQL local
 
-## Límite entre cliente y servidor
+## Ejecución e identidad
 
-En la primera versión, el servicio de aplicación ejecuta las operaciones localmente e inyecta repositorios IndexedDB. En la versión con servidor, los casos de uso autoritativos vivirán en el backend. El navegador enviará comandos mediante un adaptador HTTP; el servidor validará tanto los datos como la identidad y recalculará resultados.
+El navegador usa `src/infrastructure/http.ts`. Express (`server/app.ts`) ejecuta `LegajoService` con un repositorio transaccional PostgreSQL (`server/store.ts`). El frontend conserva Vinext y Sites. La dirección pública local es `http://localhost:5173`; el proxy sirve páginas y WebSocket de desarrollo desde 5174. Ambos procesos escuchan únicamente en loopback.
 
-Las comprobaciones de perfil en el cliente sirven para la demostración. Un usuario puede modificar su navegador y sus datos locales; por eso no constituyen una frontera de seguridad.
+Las contraseñas se almacenan con hash scrypt y sal individual. La sesión usa un token aleatorio de 256 bits; PostgreSQL guarda su SHA-256. Cookie `legajo_session`, HttpOnly, SameSite=Strict, expiración de ocho horas. Las escrituras comprueban el origen local. El servidor resuelve identidad, rol vigente y docente vinculado; ignora identidades enviadas en el JSON. No se utiliza sessionStorage para autenticar ni hay selectores para asumir otro rol.
 
-Los puertos `TeacherRepository`, `DossierRepository`, `RequestRepository`, `EvaluationRepository` y `DocumentRepository` definen lecturas. `WorkspaceRepository.commit` es una unidad de trabajo local con control de revisión. En el servidor se reemplazará por transacciones de comandos sobre repositorios especializados, sin sustituir una base de datos completa en cada petición.
+El docente recibe solo sus registros, archivos e historial. Las cuentas del personal comparten el ámbito de la demostración académica local. La comisión debe tener una referencia en `miembro_comision` para cerrar una evaluación. Las nuevas convocatorias reciben una comisión identificada expresamente como demostración, sin designación institucional.
 
-## Contratos HTTP propuestos
+## Contratos HTTP
 
-Estos endpoints están documentados para la siguiente etapa; **todavía no hay una API implementada**.
+Todos los recursos siguientes usan `/api/v1`. Las lecturas requieren sesión salvo health y session; login/logout admiten sesión ausente.
 
 | Método y recurso | Responsabilidad |
 |---|---|
-| GET /api/v1/session | Identidad, perfiles y unidades autorizadas |
-| GET /api/v1/teachers?search=&faculty=&department=&cursor= | Directorio paginado y limitado por permisos |
-| POST /api/v1/teachers | Registrar docente |
-| PATCH /api/v1/teachers/:id | Editar ficha con versión esperada |
-| GET /api/v1/teachers/:id/dossier | Ficha, grados, méritos y estados |
-| POST /api/v1/teachers/:id/merits | Registrar mérito y vincular archivo cargado |
-| PATCH /api/v1/merits/:id | Corregir un mérito pendiente u observado |
-| POST /api/v1/merits/:id/reviews | Verificar u observar evidencia |
-| POST /api/v1/files | Carga multipart a almacenamiento privado |
-| GET /api/v1/files/:id | Descarga autorizada o URL temporal firmada |
-| POST /api/v1/applications | Preparar solicitud a la categoría inmediata superior |
-| POST /api/v1/applications/:id/submissions | Presentar o reenviar |
-| POST /api/v1/applications/:id/observations | Devolver con observación |
-| GET /api/v1/applications/:id/evaluation-preview | Calcular una vista previa en servidor |
-| POST /api/v1/applications/:id/evaluations | Cerrar y guardar una evaluación inmutable |
-| GET /api/v1/evaluations/:id | Resultado y evidencias que sustentaron el cierre |
-| GET /api/v1/rubrics/:version | Rúbrica versionada y aprobada |
-| GET /api/v1/vacancies?faculty=&department=&category= | Plazas de una convocatoria |
-| GET /api/v1/teachers/:id/history | Auditoría autorizada |
-| GET/POST /api/v1/calls | Consultar/crear convocatoria con rúbrica y plazas |
-| PATCH /api/v1/calls/:id | Cambiar configuración antes de la primera solicitud |
-| POST /api/v1/calls/:id/phase | Cerrar recepción o proceso con restricciones de estado |
-| GET /api/v1/calls/:id/ranking?vacancyId= | Cuadro de mérito para las instancias autorizadas |
-| GET/POST/PATCH /api/v1/teachers/:id/experiences | Trayectoria con documento de respaldo |
-| GET /api/v1/merits/:id/reviews | Historial inmutable y versiones documentales autorizadas |
-| POST /api/v1/proposals | Preparar propuesta y congelar orden de mérito |
-| POST /api/v1/proposals/:id/referrals | Remitir al Consejo de Facultad |
-| POST /api/v1/proposals/:id/escalations | Elevar al Consejo Universitario |
-| POST /api/v1/proposals/:id/decisions | Registrar decisión terminal y documento de referencia |
+| GET /health | Disponibilidad de PostgreSQL y estado de inicialización |
+| POST /auth/login | JSON email/password; iniciar sesión |
+| POST /auth/logout | Revocar token y borrar cookie |
+| GET /session | Cuenta autenticada o null y estado de importación |
+| GET /workspace | DTO agregado con revisión, filtrado por permisos |
+| GET /teachers?search=&faculty=&department=&cursor=&limit= | Directorio; máximo 100 por página, nextCursor y total autorizado |
+| POST /teachers | Registrar docente y devolver su cuenta y clave inicial una vez |
+| PATCH /teachers/:id | Editar ficha |
+| GET /teachers/:id/dossier | Ficha, méritos y experiencias |
+| POST /teachers/:id/merits | Multipart: payload JSON y file; mérito y archivo atómicos |
+| PATCH /merits/:id | Corregir mérito, con archivo nuevo opcional |
+| POST /files | Variante atómica de carga: payload incluye teacherId y los campos del mérito; devuelve el ID del mérito creado |
+| GET /files/:id | Documento privado autorizado; verifica SHA-256 antes de enviarlo |
+| GET/POST /merits/:id/reviews | Consultar / verificar u observar; conserva versiones anteriores |
+| GET /applications | Solicitudes autorizadas |
+| POST /applications | Preparar solicitud: teacherId, vacancyId, callId |
+| PATCH /applications/:id | Editar borrador u observación según reglas |
+| POST /applications/:id/submissions | Presentar o reenviar |
+| POST /applications/:id/observations | Devolver con note |
+| GET /applications/:id/evaluation-preview | Calcular requisitos y puntajes en el servidor |
+| POST /applications/:id/evaluations | Cierre inmutable, note e Idempotency-Key obligatorios |
+| GET /evaluations y /evaluations/:id | Resultados e instantáneas conservadas |
+| GET /rubrics/:version | Versión autorizada |
+| POST /rubrics y PATCH /rubrics/:id | Crear / editar borrador |
+| POST /rubrics/:id/approvals | Aprobar e inmovilizar versión |
+| GET /vacancies?faculty=&department=&category= | Plazas autorizadas con filtros |
+| GET/POST /calls y PATCH /calls/:id | Consultar, crear y configurar convocatoria |
+| POST /calls/:id/phase | Cerrar recepción o proceso |
+| GET /calls/:id/ranking?vacancyId= | Orden de mérito para personal autorizado |
+| GET/POST /teachers/:id/experiences | Consultar / registrar trayectoria con evidencia del legajo |
+| PATCH /teachers/:id/experiences/:experienceId | Corregir trayectoria |
+| GET /teachers/:id/history | Auditoría autorizada |
+| GET/POST /proposals | Consultar / preparar y congelar el orden de mérito |
+| POST /proposals/:id/referrals | Remitir a Facultad; reference y note |
+| POST /proposals/:id/escalations | Elevar al Consejo Universitario |
+| POST /proposals/:id/decisions | Decisión terminal; action aprobar/denegar, reference y note |
+| GET /migrations | Estado e informe de la última importación, solo Legajos |
+| POST /migrations/preview | Multipart backup: validar ZIP sin importarlo |
+| POST /migrations | Importación inicial transaccional e idempotente por huella |
 
-Identificadores UUID estables, fechas de calendario `YYYY-MM-DD` y marcas UTC ISO 8601. Separar el día académico de la zona horaria utilizada en auditoría. Los códigos visibles de expediente deben tener una secuencia generada por el servidor, independiente del identificador.
+Las cargas de documentos se vinculan a un mérito dentro de la misma transacción; no hay cargas huérfanas públicas. Se permiten PDF, PNG, JPEG y WebP, con firma y MIME compatibles, hasta 10 MiB. Los ZIP de importación admiten hasta 128 MiB comprimidos, 512 MiB descomprimidos y 16 MiB para workspace.json.
 
-Las escrituras usarán `If-Match` o una `expectedVersion`. Responder 409 al detectar conflictos. El cierre debe admitir una clave de idempotencia y una restricción que impida dos evaluaciones para la misma presentación. Los errores tendrán forma:
+## Transacciones, errores e históricos
 
-```json
-{
-  "code": "EVIDENCE_PENDING",
-  "message": "Hay evidencias pendientes de revisión.",
-  "fieldErrors": {},
-  "requestId": "identificador-de-traza"
-}
-```
+Las escrituras requieren `If-Match: <revision>`. La fila `aplicacion_estado` serializa comandos y compara la revisión antes de guardar. Se actualizan únicamente entidades modificadas, relaciones nuevas y auditoría. Respuesta: `{result,revision,accounts}`; accounts contiene contraseñas solo en el alta inicial de un docente y nunca se guarda en auditoría ni en la respuesta idempotente persistida.
 
-Usar 400/422 para validación, 401 para sesión ausente, 403 para permisos, 404 para recursos no disponibles, 409 para conflictos y 413 para tamaño excesivo. No devolver SQL, secretos ni trazas internas al navegador.
+Los cierres requieren `Idempotency-Key`; repetir la misma clave, usuario, ruta y contenido devuelve el resultado anterior incluso con If-Match antiguo. Una clave con contenido distinto produce 409. La evaluación se calcula en el servidor y congela docente, convocatoria, rúbrica y evidencias. Las lecturas agregadas usan una transacción de solo lectura y una instantánea consistente.
 
-## Autenticación y permisos
+Errores: `{code,message,requestId}`. Estados: 401 sesión ausente, 403 permisos/origen, 404 recurso no disponible, 409 revisión/duplicado/idempotencia, 413 tamaño, 422 datos/reglas, 428 cabeceras requeridas y 5xx indisponibilidad o fallo interno. Los errores PostgreSQL no exponen consultas ni secretos. El navegador permite reintentar y nunca vuelve silenciosamente a IndexedDB.
 
-Resolver `Actor` desde la sesión del servidor, nunca desde un campo enviado por el cliente. Integrar el proveedor institucional mediante OIDC cuando se defina. Preferir cookie de sesión HttpOnly/Secure/SameSite, expiración y protección CSRF apropiada.
+IDs existentes se conservan como texto; registros nuevos usan UUID. Fechas académicas DATE, instantes TIMESTAMPTZ, puntajes NUMERIC, indicadores BOOLEAN e instantáneas JSONB. Cada entidad conserva una proyección DTO JSONB junto a sus columnas relacionales y tablas hijas; no se guarda un workspace completo en una tabla.
 
-Permisos efectivos por acción y unidad: docente solo sobre sus registros; personal de legajos sobre las unidades asignadas; comisión solo en convocatorias y expedientes designados. Auditoría con usuario real, fecha del servidor y motivo. El catálogo global de personas que facilita el selector de demostración debe desaparecer del cliente de un docente real.
+PostgreSQL impide modificar o borrar evaluaciones, detalles, evidencia documental, revisiones, auditoría, eventos y cuadros congelados. Inmoviliza las rúbricas aprobadas y sus detalles, exige promoción inmediata y aplica el índice único parcial para propuestas activas o aprobadas por plaza. La decisión sigue siendo una simulación y no cambia la categoría docente.
 
-## Cierre de evaluación
+## Importación y respaldo
 
-Dentro de una transacción:
+El asistente `/migracion` lee IndexedDB mediante transacciones readonly y descarga el respaldo antes de importar. El servidor valida IDs, referencias, archivos y SHA-256; conserva el ZIP, reconstruye dependencias sin desactivar triggers y registra la huella de importación. Repetir un paquete devuelve el informe anterior; otro paquete no sobrescribe la base inicializada.
 
-1. Bloquear o comprobar la versión de la solicitud.
-2. Verificar estado presentado y permiso de comisión.
-3. Consultar evidencias verificadas, requisitos y versión de rúbrica aplicable a la convocatoria.
-4. Calcular en servidor; ignorar el puntaje enviado por el navegador.
-5. Conservar instantáneas o referencias inmutables a todas las entradas.
-6. Guardar el resultado, auditoría y transición de estado de manera atómica.
+Antes del commit se comparan todas las proyecciones de las colecciones y cada archivo contra el respaldo. Cualquier error revierte la transacción y retira solo los archivos creados por ese intento. Las identidades históricas ausentes se representan con usuarios técnicos inactivos, identificados como importación y sin acceso al sistema. No se atribuye una aprobación inexistente a una persona real.
 
-El prototipo comprueba disponibilidad y bloquea propuestas activas o aprobadas duplicadas para la misma plaza, mediante la misma transacción local. Registra una decisión de simulación y no altera la categoría docente. Antes de una operación real debe definirse adjudicación, desempates, presupuesto, aprobación y reserva concurrente de plazas. No debe interpretarse «Apto para propuesta» como adjudicación.
+El respaldo original de Chrome de esta PC fue importado conservando 6 docentes, 24 méritos, 4 solicitudes y 24 archivos. La aprobación de la rúbrica heredada no constaba: permanece como borrador de simulación.
 
-## Archivos
+## Componentes y pruebas
 
-Almacenamiento de objetos privado separado de los metadatos. Conservar nombre original, tipo detectado, tamaño, hash, propietario y versión. Comprobar límites y contenido en el servidor; la firma básica local no sustituye validación estructural ni análisis antimalware.
+`db/schema.pg.ts` describe el esquema Drizzle; `drizzle-pg/0000_legajos.sql` es la migración versionada y verificada por SHA-256. `scripts/setup-postgres.mjs` usa el administrador solo al preparar roles y bases; la aplicación utiliza `legajo_app` y los scripts de migración/respaldo el propietario.
 
-No sobrescribir archivos que respalden evaluaciones. Definir política de retención y eliminación institucional. Autorizar cada descarga, mantener auditoría y usar URLs temporales. Las cargas incompletas deben expirar sin dejar referencias rotas. Probar fallos de red, cuotas y reintentos.
-
-## Adaptación progresiva
-
-1. Reutilizar tipos y funciones puras de `src/domain` en un paquete compartido.
-2. Añadir una fachada de casos de uso al cliente HTTP con las operaciones de `LegajoService`.
-3. Cambiar `src/composition.ts` para inyectar esa fachada y resolver la sesión real.
-4. Sustituir la inicialización de ejemplos por la lectura autorizada.
-5. Añadir repositorios del servidor, migraciones, respaldos y pruebas de integración.
-6. Mantener pruebas de dominio y adaptar los recorridos de navegador a cuentas de prueba.
-
-El esquema relacional, la normalización y las migraciones se definirán en la etapa de diseño de persistencia. La estructura de IndexedDB no debe copiarse literalmente como una tabla única en producción.
-
-> [!NOTE]
-> El modelado de la persistencia **ya está disponible** y no altera el prototipo: `db/schema.ts`
-> contiene el esquema Drizzle de las 35 tablas y `drizzle/0000_legajo_promocion_unp.sql` el DDL
-> completo (tablas, índices, triggers y catálogos) del anexo B del Análisis del Sistema v2.0.
-> Aplicarlo es un paso de configuración cuando se conecte la base; hoy `getDb()` no se invoca y el
-> prototipo sigue con IndexedDB. Detalle en [PLAN-ALINEACION-ANALISIS-V2.md](PLAN-ALINEACION-ANALISIS-V2.md).
-
-## Nuevos contratos del dominio
-
-PromotionCall conserva periodo, estado, vacancyIds y rúbrica completa. ApplicationRequest exige callId. La rúbrica incluye requisitos por categoría y fuentes por criterio; Evaluation incorpora callSnapshot.
-
-ReviewEvent conserva identidad, marca temporal, motivo, estado anterior/posterior y referencias a ambos archivos. Proposal conserva evaluationId, rankingSnapshot y eventos por instancia. La última decisión es terminal. AuditEntry añade actorId, actorName y cambios antes/después. La vista docente excluye cambios de auditoría que puedan contener datos de otros postulantes y limita el cuadro conservado a su propia fila.
-
-En servidor, obtener actorId desde la sesión. Aplicar restricciones por facultad y convocatoria a decanato y consejos, además de los roles. Las referencias a oficios/resoluciones son texto de ejemplo en esta versión; producción requerirá validar y archivar el documento institucional, su firma y procedencia.
-
-Los comandos de propuesta deben comprobar recepción cerrada, evaluaciones completas, orden de mérito, empate, plaza y unicidad dentro de una transacción. Todas las instancias comparten el control de revisión; sustituirlo por bloqueos/restricciones de base de datos y claves de idempotencia. No confiar en puntajes, puestos, instantáneas o identidades enviados por el cliente.
+Las 27 pruebas originales siguen disponibles. La suite PostgreSQL usa exclusivamente `legajos_unp_test`, puertos 5183/5184 y `.local/test-data`, con credenciales independientes. Cubre cuentas, sesiones, permisos manipulados, concurrencia, archivos, correcciones, evaluación, propuestas por cada instancia, rúbricas, importación y reversión. Los recorridos de navegador usan Edge y verifican lectura compartida desde Chrome.

@@ -7,6 +7,8 @@ export interface Actor {
   role: Role;
   teacherId: string;
   userId?: string;
+  /** Identidad resuelta por una sesión del servidor; nunca se acepta desde HTTP. */
+  identity?: Identity;
 }
 export interface Teacher {
   id: string;

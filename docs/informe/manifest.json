@@ -1,0 +1,814 @@
+{
+  "generatedAt": "2026-10-16T19:06:32.510Z",
+  "app": "http://localhost:5173",
+  "diagrams": {
+    "CUS01": {
+      "dc": "DC_CUS01_GestionarDocente",
+      "name": "Registrar y editar ficha del docente",
+      "actor": ": Personal de legajos",
+      "iu": "IU: Gestionar Docente",
+      "route": "/docentes",
+      "cc": "CC_GestionarDocente",
+      "method": "saveTeacher()",
+      "entities": [
+        {
+          "obj": ":Docente",
+          "tbl": "docente"
+        },
+        {
+          "obj": ":Facultad",
+          "tbl": "facultad"
+        },
+        {
+          "obj": ":Departamento",
+          "tbl": "departamento"
+        },
+        {
+          "obj": ":CategoriaDocente",
+          "tbl": "categoria_docente"
+        }
+      ],
+      "messages": [
+        "1: registrarDocente() / editarFicha()",
+        "2: validarCampos()",
+        "3: verificarDuplicado() :Docente",
+        "4: Grabar() :Docente",
+        "5: auditar() :AuditoriaEvento"
+      ],
+      "returns": "VarDocente",
+      "file": "diagramas/DC_CUS01_GestionarDocente.png"
+    },
+    "CUS02": {
+      "dc": "DC_CUS02_RegistrarMerito",
+      "name": "Registrar mérito y evidencia",
+      "actor": ": Docente · : Personal de legajos",
+      "iu": "IU: Registrar Mérito",
+      "route": "/legajos/:id (Méritos)",
+      "cc": "CC_RegistrarMerito",
+      "method": "saveMerit()",
+      "entities": [
+        {
+          "obj": ":Legajo",
+          "tbl": "legajo"
+        },
+        {
+          "obj": ":Merito",
+          "tbl": "merito"
+        },
+        {
+          "obj": ":TipoMerito",
+          "tbl": "tipo_merito"
+        },
+        {
+          "obj": ":Documento",
+          "tbl": "documento"
+        }
+      ],
+      "messages": [
+        "1: registrarMerito()",
+        "2: validarDocumento()",
+        "3: adjuntarEvidencia() :Documento",
+        "4: Grabar() :Merito",
+        "5: auditar() :AuditoriaEvento"
+      ],
+      "returns": "VarMerito",
+      "file": "diagramas/DC_CUS02_RegistrarMerito.png"
+    },
+    "CUS03": {
+      "dc": "DC_CUS03_RegistrarTrayectoria",
+      "name": "Registrar trayectoria laboral",
+      "actor": ": Docente · : Personal de legajos",
+      "iu": "IU: Registrar Trayectoria",
+      "route": "/legajos/:id (Grados y experiencia)",
+      "cc": "CC_RegistrarTrayectoria",
+      "method": "saveExperience()",
+      "entities": [
+        {
+          "obj": ":ExperienciaLaboral",
+          "tbl": "experiencia_laboral"
+        },
+        {
+          "obj": ":Legajo",
+          "tbl": "legajo"
+        },
+        {
+          "obj": ":Documento",
+          "tbl": "documento"
+        }
+      ],
+      "messages": [
+        "1: registrarTrayectoria()",
+        "2: validarPeriodo()",
+        "3: vincularEvidencia() :Documento",
+        "4: Grabar() :ExperienciaLaboral",
+        "5: auditar() :AuditoriaEvento"
+      ],
+      "returns": "VarExperiencia",
+      "file": "diagramas/DC_CUS03_RegistrarTrayectoria.png"
+    },
+    "CUS04": {
+      "dc": "DC_CUS04_VerificarMerito",
+      "name": "Verificar u observar mérito",
+      "actor": ": Personal de legajos · : Comisión",
+      "iu": "IU: Verificar Mérito",
+      "route": "/revision",
+      "cc": "CC_VerificarMerito",
+      "method": "review()",
+      "entities": [
+        {
+          "obj": ":Merito",
+          "tbl": "merito"
+        },
+        {
+          "obj": ":RevisionMerito",
+          "tbl": "revision_merito"
+        },
+        {
+          "obj": ":Documento",
+          "tbl": "documento"
+        }
+      ],
+      "messages": [
+        "1: verificarMerito()",
+        "2: consultarEvidencia() :Documento",
+        "3: registrarResultado() :RevisionMerito",
+        "4: Grabar() :Merito",
+        "5: auditar() :AuditoriaEvento"
+      ],
+      "returns": "VarRevision",
+      "file": "diagramas/DC_CUS04_VerificarMerito.png"
+    },
+    "CUS05": {
+      "dc": "DC_CUS05_CorregirMerito",
+      "name": "Corregir mérito observado",
+      "actor": ": Docente",
+      "iu": "IU: Corregir Mérito",
+      "route": "/legajos/:id (Méritos)",
+      "cc": "CC_CorregirMerito",
+      "method": "saveMerit(id)",
+      "entities": [
+        {
+          "obj": ":Merito",
+          "tbl": "merito"
+        },
+        {
+          "obj": ":Documento",
+          "tbl": "documento"
+        },
+        {
+          "obj": ":RevisionMerito",
+          "tbl": "revision_merito"
+        }
+      ],
+      "messages": [
+        "1: corregirMerito()",
+        "2: consultarObservacion() :RevisionMerito",
+        "3: reemplazarDocumento() :Documento",
+        "4: Grabar() :Merito",
+        "5: auditar() :AuditoriaEvento"
+      ],
+      "returns": "VarMerito",
+      "file": "diagramas/DC_CUS05_CorregirMerito.png"
+    },
+    "CUS06": {
+      "dc": "DC_CUS06_GestionarRubrica",
+      "name": "Gestionar rúbrica y requisitos",
+      "actor": ": Personal de legajos",
+      "iu": "IU: Gestionar Rúbrica",
+      "route": "/rubrica",
+      "cc": "CC_GestionarRubrica",
+      "method": "saveRubric() / approveRubric()",
+      "entities": [
+        {
+          "obj": ":Rubrica",
+          "tbl": "rubrica"
+        },
+        {
+          "obj": ":RubricaCriterio",
+          "tbl": "rubrica_criterio"
+        },
+        {
+          "obj": ":RubricaRequisito",
+          "tbl": "rubrica_requisito"
+        }
+      ],
+      "messages": [
+        "1: crearVersion()",
+        "2: definirCriterios() :RubricaCriterio",
+        "3: definirRequisitos() :RubricaRequisito",
+        "4: Grabar() :Rubrica",
+        "5: aprobarRubrica()",
+        "6: auditar() :AuditoriaEvento"
+      ],
+      "returns": "VarRubrica",
+      "file": "diagramas/DC_CUS06_GestionarRubrica.png"
+    },
+    "CUS07": {
+      "dc": "DC_CUS07_GestionarConvocatoria",
+      "name": "Gestionar convocatoria y plazas",
+      "actor": ": Personal de legajos",
+      "iu": "IU: Gestionar Convocatoria",
+      "route": "/convocatorias",
+      "cc": "CC_GestionarConvocatoria",
+      "method": "saveCall() / advanceCall()",
+      "entities": [
+        {
+          "obj": ":Convocatoria",
+          "tbl": "convocatoria"
+        },
+        {
+          "obj": ":ConvocatoriaPlaza",
+          "tbl": "convocatoria_plaza"
+        },
+        {
+          "obj": ":Plaza",
+          "tbl": "plaza"
+        },
+        {
+          "obj": ":Rubrica",
+          "tbl": "rubrica"
+        }
+      ],
+      "messages": [
+        "1: crearConvocatoria()",
+        "2: asignarPlazas() :ConvocatoriaPlaza",
+        "3: aplicarRubrica() :Rubrica",
+        "4: Grabar() :Convocatoria",
+        "5: auditar() :AuditoriaEvento"
+      ],
+      "returns": "VarConvocatoria",
+      "file": "diagramas/DC_CUS07_GestionarConvocatoria.png"
+    },
+    "CUS08": {
+      "dc": "DC_CUS08_DesignarComision",
+      "name": "Designar comisión evaluadora",
+      "actor": ": Personal de legajos",
+      "iu": "IU: Designar Comisión",
+      "route": "(sin pantalla)",
+      "cc": "CC_DesignarComision",
+      "method": "(pendiente)",
+      "entities": [
+        {
+          "obj": ":ComisionEvaluadora",
+          "tbl": "comision_evaluadora"
+        },
+        {
+          "obj": ":MiembroComision",
+          "tbl": "miembro_comision"
+        }
+      ],
+      "messages": [
+        "1: designarComision()",
+        "2: seleccionarMiembros() :MiembroComision",
+        "3: Grabar() :ComisionEvaluadora",
+        "4: auditar() :AuditoriaEvento"
+      ],
+      "returns": "VarComision",
+      "file": "diagramas/DC_CUS08_DesignarComision.png"
+    },
+    "CUS09": {
+      "dc": "DC_CUS09_PresentarSolicitud",
+      "name": "Presentar solicitud de promoción",
+      "actor": ": Docente",
+      "iu": "IU: Presentar Solicitud",
+      "route": "/solicitudes",
+      "cc": "CC_PresentarSolicitud",
+      "method": "saveRequest() / submit()",
+      "entities": [
+        {
+          "obj": ":SolicitudPromocion",
+          "tbl": "solicitud_promocion"
+        },
+        {
+          "obj": ":ExpedienteItem",
+          "tbl": "expediente_item"
+        },
+        {
+          "obj": ":SolicitudHistorialEstado",
+          "tbl": "solicitud_historial_estado"
+        },
+        {
+          "obj": ":Plaza",
+          "tbl": "plaza"
+        }
+      ],
+      "messages": [
+        "1: presentarSolicitud()",
+        "2: buscarLegajo() :Legajo",
+        "3: verificarRequisitos() :Rubrica",
+        "4: verificarPlaza() :Plaza",
+        "5: registrarEstado() :SolicitudHistorialEstado",
+        "6: Grabar() :SolicitudPromocion",
+        "7: auditar() :AuditoriaEvento"
+      ],
+      "returns": "VarSolicitud",
+      "file": "diagramas/DC_CUS09_PresentarSolicitud.png"
+    },
+    "CUS10": {
+      "dc": "DC_CUS10_ObservarSolicitud",
+      "name": "Observar y devolver solicitud",
+      "actor": ": Personal de legajos · : Comisión",
+      "iu": "IU: Observar Solicitud",
+      "route": "/solicitudes",
+      "cc": "CC_ObservarSolicitud",
+      "method": "observeRequest()",
+      "entities": [
+        {
+          "obj": ":SolicitudPromocion",
+          "tbl": "solicitud_promocion"
+        },
+        {
+          "obj": ":ObservacionSolicitud",
+          "tbl": "observacion_solicitud"
+        },
+        {
+          "obj": ":SolicitudHistorialEstado",
+          "tbl": "solicitud_historial_estado"
+        }
+      ],
+      "messages": [
+        "1: observarSolicitud()",
+        "2: registrarObservacion() :ObservacionSolicitud",
+        "3: registrarEstado('observada') :SolicitudHistorialEstado",
+        "4: Grabar() :SolicitudPromocion",
+        "5: auditar() :AuditoriaEvento"
+      ],
+      "returns": "VarSolicitud",
+      "file": "diagramas/DC_CUS10_ObservarSolicitud.png"
+    },
+    "CUS11": {
+      "dc": "DC_CUS11_EvaluarSolicitud",
+      "name": "Evaluar y cerrar evaluación",
+      "actor": ": Comisión evaluadora",
+      "iu": "IU: Evaluar Solicitud",
+      "route": "/evaluaciones/:id",
+      "cc": "CC_EvaluarSolicitud",
+      "method": "closeEvaluation()",
+      "entities": [
+        {
+          "obj": ":Evaluacion",
+          "tbl": "evaluacion"
+        },
+        {
+          "obj": ":EvaluacionCriterio",
+          "tbl": "evaluacion_criterio"
+        },
+        {
+          "obj": ":EvaluacionRequisito",
+          "tbl": "evaluacion_requisito"
+        },
+        {
+          "obj": ":EvaluacionEvidencia",
+          "tbl": "evaluacion_evidencia"
+        },
+        {
+          "obj": ":Rubrica",
+          "tbl": "rubrica"
+        }
+      ],
+      "messages": [
+        "1: evaluarSolicitud()",
+        "2: aplicarCriterios() :EvaluacionCriterio",
+        "3: verificarRequisitos() :EvaluacionRequisito",
+        "4: registrarEvidencias() :EvaluacionEvidencia",
+        "5: calcularPuntaje() :Rubrica",
+        "6: Grabar() :Evaluacion",
+        "7: auditar() :AuditoriaEvento"
+      ],
+      "returns": "VarEvaluacion",
+      "file": "diagramas/DC_CUS11_EvaluarSolicitud.png"
+    },
+    "CUS12": {
+      "dc": "DC_CUS12_ConsultarOrdenMerito",
+      "name": "Consultar orden de mérito",
+      "actor": ": Comisión · : Decanato",
+      "iu": "IU: Consultar Orden de Mérito",
+      "route": "/orden-merito",
+      "cc": "CC_OrdenMerito",
+      "method": "ranking() (consulta)",
+      "entities": [
+        {
+          "obj": ":Evaluacion",
+          "tbl": "evaluacion"
+        },
+        {
+          "obj": ":PropuestaOrdenMerito",
+          "tbl": "propuesta_orden_merito"
+        },
+        {
+          "obj": ":Plaza",
+          "tbl": "plaza"
+        }
+      ],
+      "messages": [
+        "1: consultarOrden()",
+        "2: listarEvaluaciones() :Evaluacion",
+        "3: ordenarPorPuntaje()",
+        "4: mostrarCuadro()"
+      ],
+      "returns": "VarCuadro",
+      "file": "diagramas/DC_CUS12_ConsultarOrdenMerito.png"
+    },
+    "CUS13": {
+      "dc": "DC_CUS13_PrepararPropuesta",
+      "name": "Preparar propuesta",
+      "actor": ": Decanato",
+      "iu": "IU: Preparar Propuesta",
+      "route": "/orden-merito",
+      "cc": "CC_PrepararPropuesta",
+      "method": "createProposal()",
+      "entities": [
+        {
+          "obj": ":Propuesta",
+          "tbl": "propuesta"
+        },
+        {
+          "obj": ":PropuestaOrdenMerito",
+          "tbl": "propuesta_orden_merito"
+        },
+        {
+          "obj": ":Evaluacion",
+          "tbl": "evaluacion"
+        }
+      ],
+      "messages": [
+        "1: prepararPropuesta()",
+        "2: consultarOrden() :Evaluacion",
+        "3: congelarCuadro() :PropuestaOrdenMerito",
+        "4: Grabar() :Propuesta",
+        "5: auditar() :AuditoriaEvento"
+      ],
+      "returns": "VarPropuesta",
+      "file": "diagramas/DC_CUS13_PrepararPropuesta.png"
+    },
+    "CUS14": {
+      "dc": "DC_CUS14_RemitirPropuesta",
+      "name": "Remitir y elevar propuesta",
+      "actor": ": Decanato · : Consejo de Facultad",
+      "iu": "IU: Remitir Propuesta",
+      "route": "/propuestas",
+      "cc": "CC_RemitirPropuesta",
+      "method": "advanceProposal(\"remitir\" / \"elevar\")",
+      "entities": [
+        {
+          "obj": ":Propuesta",
+          "tbl": "propuesta"
+        },
+        {
+          "obj": ":PropuestaEvento",
+          "tbl": "propuesta_evento"
+        }
+      ],
+      "messages": [
+        "1: remitirPropuesta()",
+        "2: registrarEvento() :PropuestaEvento",
+        "3: Grabar() :Propuesta",
+        "4: auditar() :AuditoriaEvento"
+      ],
+      "returns": "VarPropuesta",
+      "file": "diagramas/DC_CUS14_RemitirPropuesta.png"
+    },
+    "CUS15": {
+      "dc": "DC_CUS15_RegistrarDecision",
+      "name": "Registrar decisión",
+      "actor": ": Consejo Universitario",
+      "iu": "IU: Registrar Decisión",
+      "route": "/propuestas",
+      "cc": "CC_RegistrarDecision",
+      "method": "advanceProposal(\"aprobar\" / \"denegar\")",
+      "entities": [
+        {
+          "obj": ":Propuesta",
+          "tbl": "propuesta"
+        },
+        {
+          "obj": ":PropuestaEvento",
+          "tbl": "propuesta_evento"
+        }
+      ],
+      "messages": [
+        "1: registrarDecision()",
+        "2: registrarEvento() :PropuestaEvento",
+        "3: Grabar() :Propuesta",
+        "4: auditar() :AuditoriaEvento"
+      ],
+      "returns": "VarPropuesta",
+      "file": "diagramas/DC_CUS15_RegistrarDecision.png"
+    },
+    "CUS16": {
+      "dc": "DC_CUS16_ConsultarPropuestas",
+      "name": "Consultar propuestas y decisiones",
+      "actor": ": Docente · : Decanato · : Consejos",
+      "iu": "IU: Consultar Propuestas",
+      "route": "/propuestas · /",
+      "cc": "CC_ConsultarPropuestas",
+      "method": "snapshot() (consulta)",
+      "entities": [
+        {
+          "obj": ":Propuesta",
+          "tbl": "propuesta"
+        },
+        {
+          "obj": ":PropuestaEvento",
+          "tbl": "propuesta_evento"
+        },
+        {
+          "obj": ":Evaluacion",
+          "tbl": "evaluacion"
+        }
+      ],
+      "messages": [
+        "1: consultarPropuestas()",
+        "2: listarPropuestas() :Propuesta",
+        "3: mostrarEventos() :PropuestaEvento",
+        "4: mostrarResultado() :Evaluacion"
+      ],
+      "returns": "VarConsulta",
+      "file": "diagramas/DC_CUS16_ConsultarPropuestas.png"
+    },
+    "CUS17": {
+      "dc": "DC_CUS17_ConsultarHistorial",
+      "name": "Consultar historial y auditoría",
+      "actor": ": Docente (propio) · : Personal de legajos",
+      "iu": "IU: Consultar Historial",
+      "route": "/legajos/:id (Historial)",
+      "cc": "CC_ConsultarHistorial",
+      "method": "snapshot() / reviews (consulta)",
+      "entities": [
+        {
+          "obj": ":AuditoriaEvento",
+          "tbl": "auditoria_evento"
+        },
+        {
+          "obj": ":AuditoriaCambio",
+          "tbl": "auditoria_cambio"
+        },
+        {
+          "obj": ":RevisionMerito",
+          "tbl": "revision_merito"
+        }
+      ],
+      "messages": [
+        "1: consultarHistorial()",
+        "2: listarEventos() :AuditoriaEvento",
+        "3: listarCambios() :AuditoriaCambio",
+        "4: listarRevisiones() :RevisionMerito"
+      ],
+      "returns": "VarHistorial",
+      "file": "diagramas/DC_CUS17_ConsultarHistorial.png"
+    },
+    "CUS18": {
+      "dc": "DC_CUS18_AdministrarUsuarios",
+      "name": "Administrar usuarios y roles",
+      "actor": ": Administrador del sistema",
+      "iu": "IU: Administrar Usuarios",
+      "route": "/login (sesión simulada)",
+      "cc": "CC_AdministrarUsuarios",
+      "method": "(pendiente)",
+      "entities": [
+        {
+          "obj": ":Usuario",
+          "tbl": "usuario"
+        },
+        {
+          "obj": ":Rol",
+          "tbl": "rol"
+        },
+        {
+          "obj": ":AsignacionRol",
+          "tbl": "asignacion_rol"
+        }
+      ],
+      "messages": [
+        "1: administrarUsuarios()",
+        "2: crearUsuario() :Usuario",
+        "3: asignarRol() :AsignacionRol",
+        "4: Grabar() :Usuario",
+        "5: auditar() :AuditoriaEvento"
+      ],
+      "returns": "VarUsuario",
+      "file": "diagramas/DC_CUS18_AdministrarUsuarios.png"
+    }
+  },
+  "screens": [
+    {
+      "id": "login",
+      "title": "Portal de acceso y sesión",
+      "route": "/login",
+      "component": "LoginView",
+      "actors": "Todos los actores",
+      "cus": [
+        "CUS18"
+      ],
+      "description": "Puerta de entrada del prototipo. Permite iniciar sesión con credenciales institucionales de demostración (correo UNP y contraseña de prueba), con tarjetas de acceso rápido por perfil o mediante el botón OIDC simulado. Al elegir un perfil, la aplicación fija el rol activo —Docente, Personal de legajos, Comisión evaluadora, Decanato, Consejo de Facultad o Consejo Universitario— y muestra en cada tarjeta los casos de uso habilitados para ese rol (en verde los disponibles, en gris los de fase institucional). Corresponde a la sesión por actor (RNF01) y anticipa el CUS18 «Administrar usuarios y roles», que aún no tiene pantalla propia en el prototipo.",
+      "shots": [
+        {
+          "file": "capturas/01-login.png",
+          "caption": "Portal de acceso: credenciales, cuentas oficiales de prueba y acceso rápido por perfil."
+        }
+      ]
+    },
+    {
+      "id": "panel",
+      "title": "Panel de gestión",
+      "route": "/",
+      "component": "Dashboard",
+      "actors": "Todos los actores internos",
+      "cus": [
+        "CUS16",
+        "CUS17"
+      ],
+      "description": "Tablero inicial del rol activo. Resume los indicadores del legajo y del trámite: evidencias por atender, estado documental del legajo, solicitudes recientes y accesos directos a las bandejas de trabajo. Es el punto de entrada de los actores internos y la vista de consulta del docente, donde se reflejan las propuestas y decisiones (CUS16) y el historial reciente (CUS17).",
+      "shots": [
+        {
+          "file": "capturas/02-panel.png",
+          "caption": "Panel de gestión con indicadores, bandeja «Por atender» y solicitudes recientes."
+        }
+      ]
+    },
+    {
+      "id": "docentes",
+      "title": "Docentes y legajos",
+      "route": "/docentes",
+      "component": "Teachers",
+      "actors": "Personal de legajos",
+      "cus": [
+        "CUS01"
+      ],
+      "description": "Directorio de docentes. Permite buscar y filtrar fichas por facultad, registrar un docente nuevo y abrir su legajo. Es la pantalla del CUS01 «Registrar y editar ficha del docente»: el personal de legajos da de alta la ficha y edita sus datos de adscripción y categoría.",
+      "shots": [
+        {
+          "file": "capturas/03-docentes.png",
+          "caption": "Directorio docente con buscador, filtro por facultad y acción «Registrar docente»."
+        }
+      ]
+    },
+    {
+      "id": "legajo",
+      "title": "Legajo del docente",
+      "route": "/legajos/:id",
+      "component": "Dossier",
+      "actors": "Docente (propio) · Personal de legajos · Comisión",
+      "cus": [
+        "CUS02",
+        "CUS03",
+        "CUS05",
+        "CUS17"
+      ],
+      "description": "Expediente del docente organizado en pestañas. El Resumen muestra la trayectoria y el estado documental; «Grados y experiencia» reúne títulos, grados y la trayectoria laboral (CUS03); «Méritos» concentra todas las evidencias y permite registrar un mérito nuevo (CUS02) o corregir uno observado (CUS05); «Documentos» es el archivo documental con vista previa; e «Historial» conserva revisiones, correcciones y el registro de auditoría del legajo (CUS17).",
+      "shots": [
+        {
+          "file": "capturas/04-legajo-resumen.png",
+          "caption": "Pestaña «Resumen»: trayectoria académica, ratificación documental y próximo paso."
+        },
+        {
+          "file": "capturas/05-legajo-grados.png",
+          "caption": "Pestaña «Grados y experiencia»: grados acreditados y trayectoria laboral (CUS03)."
+        },
+        {
+          "file": "capturas/06-legajo-meritos.png",
+          "caption": "Pestaña «Méritos»: evidencias con estado y acciones «Ver», «Corregir» y «Revisar» (CUS02/CUS05)."
+        },
+        {
+          "file": "capturas/07-legajo-documentos.png",
+          "caption": "Pestaña «Documentos»: archivo documental con apertura de cada evidencia."
+        },
+        {
+          "file": "capturas/08-legajo-historial.png",
+          "caption": "Pestaña «Historial»: revisiones conservadas y línea de tiempo de auditoría (CUS17)."
+        }
+      ]
+    },
+    {
+      "id": "revision",
+      "title": "Revisión documental",
+      "route": "/revision",
+      "component": "Review",
+      "actors": "Personal de legajos · Comisión",
+      "cus": [
+        "CUS04"
+      ],
+      "description": "Bandeja de verificación documental. El revisor filtra por estado, revisa la evidencia y registra el resultado: verifica el mérito o lo observa solicitando una corrección justificada. Corresponde al CUS04 «Verificar u observar mérito» (RF: revisión documental con trazabilidad).",
+      "shots": [
+        {
+          "file": "capturas/09-revision.png",
+          "caption": "Bandeja de revisión con filtros por estado y acción «Revisar» por evidencia."
+        }
+      ]
+    },
+    {
+      "id": "solicitudes",
+      "title": "Solicitudes de promoción",
+      "route": "/solicitudes",
+      "component": "Requests",
+      "actors": "Docente · Personal de legajos · Comisión",
+      "cus": [
+        "CUS09",
+        "CUS10"
+      ],
+      "description": "Expedientes de promoción. El docente crea el borrador de su solicitud, elige la plaza y la presenta (CUS09); la oficina de legajos o la comisión puede observarla y devolverla para corrección (CUS10). La tabla muestra el estado de cada solicitud y las acciones disponibles según el rol.",
+      "shots": [
+        {
+          "file": "capturas/10-solicitudes.png",
+          "caption": "Listado de solicitudes con estado, plaza y acciones (presentar / observar)."
+        }
+      ]
+    },
+    {
+      "id": "evaluaciones",
+      "title": "Evaluaciones",
+      "route": "/evaluaciones · /evaluaciones/:id",
+      "component": "EvaluationView",
+      "actors": "Comisión evaluadora",
+      "cus": [
+        "CUS11"
+      ],
+      "description": "Evaluación de las solicitudes por la comisión. La lista muestra las solicitudes a evaluar; el detalle calcula, con la rúbrica vigente, el cumplimiento de requisitos, la plaza disponible y el desglose del puntaje, y permite cerrar la evaluación dejando el fundamento. Corresponde al CUS11 «Evaluar y cerrar evaluación».",
+      "shots": [
+        {
+          "file": "capturas/11-evaluaciones.png",
+          "caption": "Lista de solicitudes a evaluar, con acceso al detalle por expediente."
+        },
+        {
+          "file": "capturas/12-evaluacion-detalle.png",
+          "caption": "Detalle: requisitos, desglose del puntaje, evidencias consideradas y resultado."
+        }
+      ]
+    },
+    {
+      "id": "convocatorias",
+      "title": "Convocatorias",
+      "route": "/convocatorias",
+      "component": "Calls",
+      "actors": "Personal de legajos",
+      "cus": [
+        "CUS07"
+      ],
+      "description": "Convocatorias de promoción. Permite crear una convocatoria con su periodo de presentación, asociar las plazas, aplicar la rúbrica aprobada y controlar su estado (abierta, en evaluación, cerrada). Corresponde al CUS07 «Gestionar convocatoria y plazas».",
+      "shots": [
+        {
+          "file": "capturas/13-convocatorias.png",
+          "caption": "Convocatoria con periodo, plazas asociadas, rúbrica aplicada y estado."
+        }
+      ]
+    },
+    {
+      "id": "orden-merito",
+      "title": "Orden de mérito",
+      "route": "/orden-merito",
+      "component": "MeritOrder",
+      "actors": "Comisión · Decanato",
+      "cus": [
+        "CUS12",
+        "CUS13"
+      ],
+      "description": "Cuadro comparativo de postulantes por convocatoria y plaza. Ordena por puntaje, señala empates y resultados, y avisa si el cuadro está incompleto. El decanato puede preparar la propuesta del primer puesto apto, conservando el orden de mérito. Corresponde a los CUS12 «Consultar orden de mérito» y CUS13 «Preparar propuesta».",
+      "shots": [
+        {
+          "file": "capturas/14-orden-merito.png",
+          "caption": "Orden de mérito: puesto, puntaje, resultado y acción «Preparar propuesta»."
+        }
+      ]
+    },
+    {
+      "id": "propuestas",
+      "title": "Propuestas y decisiones",
+      "route": "/propuestas",
+      "component": "Proposals",
+      "actors": "Decanato · Consejo de Facultad · Consejo Universitario · Docente",
+      "cus": [
+        "CUS14",
+        "CUS15",
+        "CUS16"
+      ],
+      "description": "Trámite institucional de la propuesta. Sigue el informe del decanato, el acuerdo del Consejo de Facultad y la decisión del Consejo Universitario, con una línea de tiempo por etapa y referencia ficticia. El docente consulta sus propias propuestas y el estado del trámite. Corresponde a los CUS14 «Remitir y elevar propuesta», CUS15 «Registrar decisión» y CUS16 «Consultar propuestas y decisiones».",
+      "shots": [
+        {
+          "file": "capturas/15-propuestas.png",
+          "caption": "Propuesta con informe del decanato, orden de mérito conservado y seguimiento del trámite."
+        }
+      ]
+    },
+    {
+      "id": "rubrica",
+      "title": "Rúbricas y requisitos",
+      "route": "/rubrica",
+      "component": "Rubric",
+      "actors": "Personal de legajos",
+      "cus": [
+        "CUS06"
+      ],
+      "description": "Criterios de evaluación. El personal de legajos crea versiones de la rúbrica con sus criterios y requisitos por categoría y las aprueba; una vez aprobada, la versión no puede editarse ni eliminarse (RN09), y solo puede usarse si está aprobada. Corresponde al CUS06 «Gestionar rúbrica y requisitos» (RF10).",
+      "shots": [
+        {
+          "file": "capturas/16-rubrica.png",
+          "caption": "Rúbrica vigente con criterios, condiciones por categoría y estado de aprobación."
+        }
+      ]
+    }
+  ],
+  "withoutScreen": [
+    "CUS08",
+    "CUS18"
+  ]
+}

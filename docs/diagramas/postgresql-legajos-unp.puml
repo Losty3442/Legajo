@@ -1,0 +1,485 @@
+@startuml
+!theme plain
+title Legajo UNP · PostgreSQL local · esquema implementado
+hide circle
+skinparam linetype ortho
+skinparam shadowing false
+skinparam dpi 90
+skinparam entityFontSize 12
+skinparam defaultFontName Arial
+left to right direction
+entity "aplicacion_estado" as aplicacion_estado #E8EAF6 {
+  id : integer <<PK, NN>>
+  revision : integer <<NN>>
+  schema_version : integer <<NN>>
+  inicializada : boolean <<NN>>
+  rubrica_vigente_id : text <<FK>>
+}
+entity "asignacion_rol" as asignacion_rol #E0F2F1 {
+  id : text <<PK, NN>>
+  usuario_id : text <<FK, NN>>
+  rol_id : integer <<FK, NN>>
+  facultad_id : text <<FK>>
+  departamento_id : text <<FK>>
+  vigente_desde : date <<NN>>
+  vigente_hasta : date 
+}
+entity "auditoria_cambio" as auditoria_cambio #E0F2F1 {
+  id : bigint <<PK, NN>>
+  auditoria_id : bigint <<FK, NN>>
+  entidad : text <<NN>>
+  registro_id : text <<NN>>
+  antes : jsonb 
+  despues : jsonb 
+}
+entity "auditoria_evento" as auditoria_evento #E0F2F1 {
+  id : bigint <<PK, NN>>
+  ocurrido_en : timestamptz <<NN>>
+  usuario_id : text <<FK>>
+  rol_id : integer <<FK>>
+  docente_id : text <<FK>>
+  accion : text <<NN>>
+  entidad : text <<NN>>
+  mensaje : text <<NN>>
+  motivo : text 
+  id_solicitud_http : text 
+  datos : jsonb <<NN>>
+  origen_id : text <<NN>>
+}
+entity "categoria_docente" as categoria_docente #E0F2F1 {
+  id : integer <<PK, NN>>
+  nombre : text <<NN>>
+  orden : integer <<NN>>
+}
+entity "comision_evaluadora" as comision_evaluadora #E0F2F1 {
+  id : text <<PK, NN>>
+  convocatoria_id : text <<FK, NN>>
+  facultad_id : text <<FK>>
+  nombre : text <<NN>>
+  resolucion_designacion : text 
+}
+entity "convocatoria" as convocatoria #E0F2F1 {
+  id : text <<PK, NN>>
+  codigo : text <<NN>>
+  nombre : text <<NN>>
+  fecha_inicio : date <<NN>>
+  fecha_fin : date <<NN>>
+  estado : text <<NN>>
+  rubrica_id : text <<FK, NN>>
+  resolucion_referencia : text 
+  recepcion_cerrada_en : timestamptz 
+  creada_por : text <<FK, NN>>
+  version : integer <<NN>>
+  creada_en : timestamptz <<NN>>
+  datos : jsonb <<NN>>
+}
+entity "convocatoria_plaza" as convocatoria_plaza #E0F2F1 {
+  convocatoria_id : text <<PK, FK, NN>>
+  plaza_id : text <<PK, FK, NN>>
+}
+entity "dedicacion" as dedicacion #E0F2F1 {
+  id : integer <<PK, NN>>
+  nombre : text <<NN>>
+}
+entity "departamento_academico" as departamento_academico #E0F2F1 {
+  id : text <<PK, NN>>
+  facultad_id : text <<FK, NN>>
+  nombre : text <<NN>>
+  activo : boolean <<NN>>
+}
+entity "docente" as docente #E0F2F1 {
+  id : text <<PK, NN>>
+  usuario_id : text <<FK>>
+  codigo : text <<NN>>
+  nombres : text 
+  apellidos : text 
+  email : text <<NN>>
+  departamento_id : text <<FK, NN>>
+  categoria_id : integer <<FK, NN>>
+  dedicacion_id : integer <<FK, NN>>
+  fecha_categoria : date <<NN>>
+  especialidad : text 
+  activo : boolean <<NN>>
+  version : integer <<NN>>
+  creado_en : timestamptz <<NN>>
+  actualizado_en : timestamptz <<NN>>
+  datos : jsonb <<NN>>
+  nombre_completo : text <<NN>>
+}
+entity "documento" as documento #E0F2F1 {
+  id : text <<PK, NN>>
+  legajo_id : text <<FK, NN>>
+  subido_por : text <<FK, NN>>
+  nombre_original : text <<NN>>
+  tipo_mime : text <<NN>>
+  tamano_bytes : bigint <<NN>>
+  hash_sha256 : text <<NN>>
+  clave_almacenamiento : text <<NN>>
+  version : integer <<NN>>
+  reemplaza_a : text <<FK>>
+  retener_hasta : date 
+  subido_en : timestamptz <<NN>>
+}
+entity "evaluacion" as evaluacion #E0F2F1 {
+  id : text <<PK, NN>>
+  solicitud_id : text <<FK, NN>>
+  rubrica_id : text <<FK, NN>>
+  comision_id : text <<FK, NN>>
+  evaluador_id : text <<FK, NN>>
+  puntaje_total : numeric <<NN>>
+  umbral_aplicado : numeric <<NN>>
+  plaza_disponible : boolean <<NN>>
+  resultado : text <<NN>>
+  fundamento : text <<NN>>
+  clave_idempotencia : text <<NN>>
+  instantanea_docente : jsonb <<NN>>
+  instantanea_plaza : jsonb 
+  instantanea_convocatoria : jsonb <<NN>>
+  cerrada_en : timestamptz <<NN>>
+  datos : jsonb <<NN>>
+}
+entity "evaluacion_criterio" as evaluacion_criterio #E0F2F1 {
+  id : text <<PK, NN>>
+  evaluacion_id : text <<FK, NN>>
+  rubrica_criterio_id : text <<FK, NN>>
+  etiqueta : text <<NN>>
+  puntaje : numeric <<NN>>
+  tope : numeric <<NN>>
+  detalle : text 
+}
+entity "evaluacion_evidencia" as evaluacion_evidencia #E0F2F1 {
+  evaluacion_id : text <<PK, FK, NN>>
+  merito_id : text <<PK, FK, NN>>
+  documento_id : text <<FK, NN>>
+  hash_sha256 : text <<NN>>
+  estado_revision : text <<NN>>
+}
+entity "evaluacion_requisito" as evaluacion_requisito #E0F2F1 {
+  id : text <<PK, NN>>
+  evaluacion_id : text <<FK, NN>>
+  etiqueta : text <<NN>>
+  cumple : boolean <<NN>>
+  detalle : text 
+}
+entity "expediente_item" as expediente_item #E0F2F1 {
+  solicitud_id : text <<PK, FK, NN>>
+  merito_id : text <<PK, FK, NN>>
+  documento_id : text <<FK, NN>>
+  incorporado_en : timestamptz <<NN>>
+}
+entity "experiencia_laboral" as experiencia_laboral #E0F2F1 {
+  id : text <<PK, NN>>
+  legajo_id : text <<FK, NN>>
+  institucion : text <<NN>>
+  cargo : text <<NN>>
+  fecha_inicio : date <<NN>>
+  fecha_fin : date 
+  documento_id : text <<FK, NN>>
+  actualizado_en : timestamptz <<NN>>
+  datos : jsonb <<NN>>
+}
+entity "facultad" as facultad #E0F2F1 {
+  id : text <<PK, NN>>
+  codigo : text <<NN>>
+  nombre : text <<NN>>
+  activo : boolean <<NN>>
+}
+entity "legajo" as legajo #E0F2F1 {
+  id : text <<PK, NN>>
+  docente_id : text <<FK, NN>>
+  fecha_apertura : date <<NN>>
+  observaciones : text 
+  creado_en : timestamptz <<NN>>
+}
+entity "merito" as merito #E0F2F1 {
+  id : text <<PK, NN>>
+  legajo_id : text <<FK, NN>>
+  tipo_merito_id : integer <<FK, NN>>
+  titulo : text <<NN>>
+  institucion : text <<NN>>
+  fecha_merito : date <<NN>>
+  documento_id : text <<FK, NN>>
+  estado_revision : text <<NN>>
+  observacion : text 
+  revisado_por : text <<FK>>
+  revisado_en : timestamptz 
+  version : integer <<NN>>
+  creado_en : timestamptz <<NN>>
+  actualizado_en : timestamptz <<NN>>
+  datos : jsonb <<NN>>
+}
+entity "miembro_comision" as miembro_comision #E0F2F1 {
+  comision_id : text <<PK, FK, NN>>
+  usuario_id : text <<PK, FK, NN>>
+  cargo : text <<NN>>
+}
+entity "migracion_esquema" as migracion_esquema #E8EAF6 {
+  nombre : text <<PK, NN>>
+  sha256 : text <<NN>>
+  aplicada_en : timestamptz <<NN>>
+}
+entity "migracion_lote" as migracion_lote #E8EAF6 {
+  id : text <<PK, NN>>
+  huella : text <<NN>>
+  creada_en : timestamptz <<NN>>
+  usuario_id : text <<FK, NN>>
+  informe : jsonb <<NN>>
+}
+entity "observacion_solicitud" as observacion_solicitud #E0F2F1 {
+  id : text <<PK, NN>>
+  solicitud_id : text <<FK, NN>>
+  autor_id : text <<FK, NN>>
+  texto : text <<NN>>
+  creada_en : timestamptz <<NN>>
+  subsanada_en : timestamptz 
+}
+entity "operacion_idempotente" as operacion_idempotente #E8EAF6 {
+  clave : text <<PK, NN>>
+  usuario_id : text <<FK, NN>>
+  tipo : text <<NN>>
+  huella : text <<NN>>
+  resultado : jsonb <<NN>>
+  creada_en : timestamptz <<NN>>
+}
+entity "plaza" as plaza #E0F2F1 {
+  id : text <<PK, NN>>
+  codigo : text <<NN>>
+  etiqueta : text <<NN>>
+  departamento_id : text <<FK, NN>>
+  categoria_id : integer <<FK, NN>>
+  dedicacion_id : integer <<FK, NN>>
+  habilitada : boolean <<NN>>
+  creada_en : timestamptz <<NN>>
+  datos : jsonb <<NN>>
+}
+entity "propuesta" as propuesta #E0F2F1 {
+  id : text <<PK, NN>>
+  solicitud_id : text <<FK, NN>>
+  evaluacion_id : text <<FK, NN>>
+  convocatoria_id : text <<FK, NN>>
+  plaza_id : text <<FK, NN>>
+  estado : text <<NN>>
+  informe : text <<NN>>
+  creada_por : text <<FK, NN>>
+  version : integer <<NN>>
+  creada_en : timestamptz <<NN>>
+  actualizada_en : timestamptz <<NN>>
+  datos : jsonb <<NN>>
+}
+entity "propuesta_evento" as propuesta_evento #E0F2F1 {
+  id : text <<PK, NN>>
+  propuesta_id : text <<FK, NN>>
+  etapa : text <<NN>>
+  usuario_id : text <<FK, NN>>
+  rol_id : integer <<FK, NN>>
+  referencia : text <<NN>>
+  documento_id : text <<FK>>
+  nota : text 
+  ocurrido_en : timestamptz <<NN>>
+}
+entity "propuesta_orden_merito" as propuesta_orden_merito #E0F2F1 {
+  propuesta_id : text <<PK, FK, NN>>
+  solicitud_id : text <<PK, FK, NN>>
+  evaluacion_id : text <<FK, NN>>
+  docente_id : text <<FK, NN>>
+  nombre_docente : text <<NN>>
+  puntaje : numeric <<NN>>
+  resultado : text <<NN>>
+  puesto : integer 
+  empate : boolean <<NN>>
+}
+entity "revision_merito" as revision_merito #E0F2F1 {
+  id : text <<PK, NN>>
+  merito_id : text <<FK, NN>>
+  revisor_id : text <<FK, NN>>
+  rol_id : integer <<FK, NN>>
+  accion : text <<NN>>
+  estado_anterior : text 
+  estado_posterior : text <<NN>>
+  documento_anterior_id : text <<FK>>
+  documento_posterior_id : text <<FK>>
+  nota : text 
+  copia_antes : jsonb 
+  copia_despues : jsonb 
+  ocurrido_en : timestamptz <<NN>>
+  datos : jsonb <<NN>>
+}
+entity "rol" as rol #E0F2F1 {
+  id : integer <<PK, NN>>
+  codigo : text <<NN>>
+  nombre : text <<NN>>
+}
+entity "rubrica" as rubrica #E0F2F1 {
+  id : text <<PK, NN>>
+  version : text <<NN>>
+  nombre : text <<NN>>
+  umbral : numeric <<NN>>
+  puntaje_maximo : numeric <<NN>>
+  estado_fuente : text <<NN>>
+  fuente_normativa : text 
+  aprobada_en : timestamptz 
+  creada_por : text <<FK, NN>>
+  creada_en : timestamptz <<NN>>
+  datos : jsonb <<NN>>
+}
+entity "rubrica_criterio" as rubrica_criterio #E0F2F1 {
+  id : text <<PK, NN>>
+  rubrica_id : text <<FK, NN>>
+  codigo : text <<NN>>
+  nombre : text <<NN>>
+  tipo_merito_id : integer <<FK>>
+  puntos_por_unidad : numeric <<NN>>
+  tope : numeric <<NN>>
+  fuente_referencia : text <<NN>>
+  estado_fuente : text <<NN>>
+}
+entity "rubrica_requisito" as rubrica_requisito #E0F2F1 {
+  id : text <<PK, NN>>
+  rubrica_id : text <<FK, NN>>
+  categoria_destino_id : integer <<FK, NN>>
+  grado_minimo_id : integer <<FK, NN>>
+  anios_minimos : integer <<NN>>
+  investigaciones_minimas : integer <<NN>>
+  exige_ratificacion : boolean <<NN>>
+  fuente_referencia : text <<NN>>
+}
+entity "sesion" as sesion #E8EAF6 {
+  token_hash : text <<PK, NN>>
+  usuario_id : text <<FK, NN>>
+  creada_en : timestamptz <<NN>>
+  expira_en : timestamptz <<NN>>
+}
+entity "solicitud_historial_estado" as solicitud_historial_estado #E0F2F1 {
+  id : bigint <<PK, NN>>
+  solicitud_id : text <<FK, NN>>
+  estado_anterior : text 
+  estado_nuevo : text <<NN>>
+  usuario_id : text <<FK, NN>>
+  motivo : text 
+  cambiado_en : timestamptz <<NN>>
+}
+entity "solicitud_promocion" as solicitud_promocion #E0F2F1 {
+  id : text <<PK, NN>>
+  codigo : text <<NN>>
+  docente_id : text <<FK, NN>>
+  convocatoria_id : text <<FK, NN>>
+  plaza_id : text <<FK, NN>>
+  categoria_origen_id : integer <<FK, NN>>
+  categoria_destino_id : integer <<FK, NN>>
+  estado : text <<NN>>
+  nota : text 
+  presentada_en : timestamptz 
+  version : integer <<NN>>
+  creada_en : timestamptz <<NN>>
+  actualizada_en : timestamptz <<NN>>
+  datos : jsonb <<NN>>
+}
+entity "tipo_merito" as tipo_merito #E0F2F1 {
+  id : integer <<PK, NN>>
+  codigo : text <<NN>>
+  nombre : text <<NN>>
+  grupo : text <<NN>>
+  puntua : boolean <<NN>>
+}
+entity "usuario" as usuario #E0F2F1 {
+  id : text <<PK, NN>>
+  sub_externo : text 
+  nombre_completo : text <<NN>>
+  email : text <<NN>>
+  activo : boolean <<NN>>
+  ultimo_acceso : timestamptz 
+  creado_en : timestamptz <<NN>>
+  password_hash : text 
+  datos : jsonb <<NN>>
+}
+rubrica |o--o{ aplicacion_estado : "rubrica_vigente_id"
+departamento_academico |o--o{ asignacion_rol : "departamento_id"
+facultad |o--o{ asignacion_rol : "facultad_id"
+rol ||--o{ asignacion_rol : "rol_id"
+usuario ||--o{ asignacion_rol : "usuario_id"
+auditoria_evento ||--o{ auditoria_cambio : "auditoria_id"
+docente |o--o{ auditoria_evento : "docente_id"
+rol |o--o{ auditoria_evento : "rol_id"
+usuario |o--o{ auditoria_evento : "usuario_id"
+convocatoria ||--o{ comision_evaluadora : "convocatoria_id"
+facultad |o--o{ comision_evaluadora : "facultad_id"
+rubrica ||--o{ convocatoria : "rubrica_id"
+usuario ||--o{ convocatoria : "creada_por"
+convocatoria ||--o{ convocatoria_plaza : "convocatoria_id"
+plaza ||--o{ convocatoria_plaza : "plaza_id"
+facultad ||--o{ departamento_academico : "facultad_id"
+categoria_docente ||--o{ docente : "categoria_id"
+dedicacion ||--o{ docente : "dedicacion_id"
+departamento_academico ||--o{ docente : "departamento_id"
+usuario |o--o| docente : "usuario_id"
+documento |o--o{ documento : "reemplaza_a"
+legajo ||--o{ documento : "legajo_id"
+usuario ||--o{ documento : "subido_por"
+comision_evaluadora ||--o{ evaluacion : "comision_id"
+rubrica ||--o{ evaluacion : "rubrica_id"
+solicitud_promocion ||--o| evaluacion : "solicitud_id"
+usuario ||--o{ evaluacion : "evaluador_id"
+evaluacion ||--o{ evaluacion_criterio : "evaluacion_id"
+rubrica_criterio ||--o{ evaluacion_criterio : "rubrica_criterio_id"
+documento ||--o{ evaluacion_evidencia : "documento_id"
+evaluacion ||--o{ evaluacion_evidencia : "evaluacion_id"
+merito ||--o{ evaluacion_evidencia : "merito_id"
+evaluacion ||--o{ evaluacion_requisito : "evaluacion_id"
+documento ||--o{ expediente_item : "documento_id"
+merito ||--o{ expediente_item : "merito_id"
+solicitud_promocion ||--o{ expediente_item : "solicitud_id"
+documento ||--o{ experiencia_laboral : "documento_id"
+legajo ||--o{ experiencia_laboral : "legajo_id"
+docente ||--o| legajo : "docente_id"
+documento ||--o{ merito : "documento_id"
+legajo ||--o{ merito : "legajo_id"
+tipo_merito ||--o{ merito : "tipo_merito_id"
+usuario |o--o{ merito : "revisado_por"
+comision_evaluadora ||--o{ miembro_comision : "comision_id"
+usuario ||--o{ miembro_comision : "usuario_id"
+usuario ||--o{ migracion_lote : "usuario_id"
+solicitud_promocion ||--o{ observacion_solicitud : "solicitud_id"
+usuario ||--o{ observacion_solicitud : "autor_id"
+usuario ||--o{ operacion_idempotente : "usuario_id"
+categoria_docente ||--o{ plaza : "categoria_id"
+dedicacion ||--o{ plaza : "dedicacion_id"
+departamento_academico ||--o{ plaza : "departamento_id"
+convocatoria_plaza ||--o{ propuesta : "convocatoria_id, plaza_id"
+evaluacion ||--o| propuesta : "evaluacion_id"
+solicitud_promocion ||--o| propuesta : "solicitud_id"
+usuario ||--o{ propuesta : "creada_por"
+documento |o--o{ propuesta_evento : "documento_id"
+propuesta ||--o{ propuesta_evento : "propuesta_id"
+rol ||--o{ propuesta_evento : "rol_id"
+usuario ||--o{ propuesta_evento : "usuario_id"
+docente ||--o{ propuesta_orden_merito : "docente_id"
+evaluacion ||--o{ propuesta_orden_merito : "evaluacion_id"
+propuesta ||--o{ propuesta_orden_merito : "propuesta_id"
+solicitud_promocion ||--o{ propuesta_orden_merito : "solicitud_id"
+documento |o--o{ revision_merito : "documento_posterior_id"
+documento |o--o{ revision_merito : "documento_anterior_id"
+merito ||--o{ revision_merito : "merito_id"
+rol ||--o{ revision_merito : "rol_id"
+usuario ||--o{ revision_merito : "revisor_id"
+usuario ||--o{ rubrica : "creada_por"
+rubrica ||--o{ rubrica_criterio : "rubrica_id"
+tipo_merito |o--o{ rubrica_criterio : "tipo_merito_id"
+categoria_docente ||--o{ rubrica_requisito : "categoria_destino_id"
+rubrica ||--o{ rubrica_requisito : "rubrica_id"
+tipo_merito ||--o{ rubrica_requisito : "grado_minimo_id"
+usuario ||--o{ sesion : "usuario_id"
+solicitud_promocion ||--o{ solicitud_historial_estado : "solicitud_id"
+usuario ||--o{ solicitud_historial_estado : "usuario_id"
+categoria_docente ||--o{ solicitud_promocion : "categoria_destino_id"
+categoria_docente ||--o{ solicitud_promocion : "categoria_origen_id"
+convocatoria_plaza ||--o{ solicitud_promocion : "convocatoria_id, plaza_id"
+docente ||--o{ solicitud_promocion : "docente_id"
+legend bottom left
+  35 tablas del dominio + 4 de soporte + control de migraciones.
+  PK: clave primaria · FK: relación · NN: obligatorio.
+  IDs heredados: texto; nuevos registros: UUID.
+  Triggers: evaluaciones/documentos/auditoría inmutables,
+  rúbricas aprobadas bloqueadas y promoción inmediata.
+  Índice parcial: una propuesta activa o aprobada por plaza.
+endlegend
+@enduml

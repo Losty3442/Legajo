@@ -1,0 +1,118 @@
+@startuml
+hide circle
+hide methods
+skinparam linetype ortho
+skinparam shadowing false
+skinparam roundcorner 8
+skinparam defaultFontName Segoe UI
+skinparam defaultFontSize 12
+skinparam classAttributeIconSize 0
+skinparam packageStyle rectangle
+skinparam nodesep 35
+skinparam ranksep 65
+left to right direction
+title UNP · Flujo principal de persistencia\nVista parcial: 14 de las 35 tablas; campos y relaciones principales
+
+entity facultad {
+  * id <<PK>>
+  * nombre <<UQ>>
+}
+entity departamento_academico {
+  * id <<PK>>
+  * facultad_id <<FK>>
+  * nombre
+}
+entity docente {
+  * id <<PK>>
+  * departamento_id <<FK>>
+  * codigo <<UQ>>
+  * nombres
+  * apellidos
+}
+entity legajo {
+  * id <<PK>>
+  * docente_id <<FK,UQ>>
+}
+entity documento {
+  * id <<PK>>
+  * legajo_id <<FK>>
+  * nombre_original
+  * clave_almacenamiento <<UQ>>
+  * hash_sha256
+}
+entity merito {
+  * id <<PK>>
+  * legajo_id <<FK>>
+  * documento_id <<FK>>
+  * titulo
+  * estado_revision
+}
+entity rubrica {
+  * id <<PK>>
+  * version <<UQ>>
+  aprobada_en
+}
+entity plaza {
+  * id <<PK>>
+  * departamento_id <<FK>>
+  * codigo <<UQ>>
+}
+entity convocatoria {
+  * id <<PK>>
+  * rubrica_id <<FK>>
+  * codigo <<UQ>>
+  * estado
+}
+entity convocatoria_plaza {
+  * convocatoria_id <<PK,FK>>
+  * plaza_id <<PK,FK>>
+}
+entity solicitud_promocion {
+  * id <<PK>>
+  * docente_id <<FK>>
+  * convocatoria_id <<FK>>
+  * plaza_id <<FK>>
+  * estado
+}
+entity expediente_item {
+  * solicitud_id <<PK,FK>>
+  * merito_id <<PK,FK>>
+  * documento_id <<FK>>
+}
+entity evaluacion {
+  * id <<PK>>
+  * solicitud_id <<FK,UQ>>
+  * rubrica_id <<FK>>
+  * puntaje_total
+  * resultado
+}
+entity propuesta {
+  * id <<PK>>
+  * solicitud_id <<FK,UQ>>
+  * evaluacion_id <<FK,UQ>>
+  * convocatoria_id <<FK>>
+  * plaza_id <<FK>>
+  * estado
+}
+facultad ||--o{ departamento_academico
+departamento_academico ||--o{ docente
+docente ||--o| legajo
+legajo ||--o{ documento
+documento ||--o{ merito
+legajo ||--o{ merito
+departamento_academico ||--o{ plaza
+rubrica ||--o{ convocatoria
+plaza ||--o{ convocatoria_plaza
+convocatoria ||--o{ convocatoria_plaza
+convocatoria_plaza ||--o{ solicitud_promocion
+docente ||--o{ solicitud_promocion
+merito ||--o{ expediente_item
+solicitud_promocion ||--o{ expediente_item
+solicitud_promocion ||--o| evaluacion
+evaluacion ||--o| propuesta
+legend bottom left
+  Vista parcial. El archivo completo incluye seguridad, catálogos, revisiones y auditoría.
+  PK = clave primaria; FK = clave foránea; UQ = clave única; * = obligatorio.
+  || = uno; o| = cero o uno; o{ = cero o muchos.
+endlegend
+@enduml

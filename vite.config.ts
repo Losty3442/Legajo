@@ -1,5 +1,5 @@
 import vinext from "vinext";
-import { defineConfig } from "vite";
+import { defineConfig, type ViteDevServer } from "vite";
 import hostingConfig from "./.openai/hosting.json";
 import { readExecutionProfile } from "./scripts/execution-profile.mjs";
 import { sites } from "./build/sites-vite-plugin";
@@ -62,10 +62,21 @@ export default defineConfig(async () => {
       },
     },
     server: {
+      ...(process.env.LEGADO_LOCAL_API === "1" ? { host: "127.0.0.1", strictPort: true, hmr: { clientPort: Number(process.env.PORT ?? 5173) } } : {}),
       ...(managedLinux ? { host: "0.0.0.0", allowedHosts: ["terminal.local"] } : {}),
       ...(isCodexSeatbeltSandbox ? { watch: { useFsEvents: false, usePolling: true } } : {}),
     },
     plugins: [
+      {
+        name: "legajo-private-local-files",
+        configureServer(server:ViteDevServer) {
+          server.middlewares.use((req,res,next)=>{
+            let path=(req.url??"/").split("?")[0];
+            try {for(let n=0;n<3;n++){const decoded=decodeURIComponent(path);if(decoded===path)break;path=decoded;}}catch{res.statusCode=400;res.end();return;}
+            if(/(?:^|[\\/])(?:\.local|data|\.git|\.codex|\.agents|\.env(?:\.[^\\/]*)?)(?:[\\/]|$)/i.test(path)){res.statusCode=404;res.end();return;}next();
+          });
+        },
+      },
       vinext(),
       sites({ mockAuth: !managedLinux }),
       cloudflare({

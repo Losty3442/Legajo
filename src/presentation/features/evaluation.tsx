@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { ArrowLeft, ShieldCheck, FileText, LockKeyhole, CheckCheck, Printer } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -8,7 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { useWorkspace } from "../provider";
 import { legajoService } from "../../composition";
-import { evaluate } from "../../domain/evaluation";
+import type { Evaluation } from "../../domain/models";
 import { kinds } from "../../domain/models";
 import { Avatar, PageHeader, Empty, Score, Status, RequirementRow, SectionTitle, Confirm, EvidencePreview, dateLabel, DataTable, TableCell, TableRow } from "../components/common";
 export function EvaluationView({
@@ -26,13 +26,17 @@ export function EvaluationView({
   const [confirm, setConfirm] = useState(false);
   const [preview, setPreview] = useState("");
   const [error, setError] = useState("");
+  const [preliminary,setPreliminary]=useState<Omit<Evaluation,"id"|"note">>();
+  const [loadError,setLoadError]=useState("");
+  useEffect(()=>{let live=true;setPreliminary(undefined);setLoadError("");void legajoService.evaluationPreview(id).then(result=>{if(live)setPreliminary(result);}).catch(e=>{if(live)setLoadError(e.message);});return()=>{live=false;};},[id,data?.revision]);
   if (!data) return null;
   const request = data.requests.find(r => r.id === id),
     teacher = data.teachers.find(t => t.id === request?.teacherId);
   if (!request || !teacher) return <Empty title="Expediente no disponible" description="Regresa a la lista para seleccionar una solicitud." />;
   const saved = data.evaluations.find(e => e.requestId === request.id);
   const call = data.calls.find(c => c.id === request.callId);
-  const result = saved ?? evaluate(teacher, data.merits, request, data.vacancies.find(v => v.id === request.vacancyId), call?.rubric ?? data.rubric, new Date().toISOString());
+  const result = saved ?? preliminary;
+  if(!result)return <Empty title={loadError?"No se pudo calcular la evaluación":"Calculando evaluación"} description={loadError||"El servidor está revisando los requisitos y las evidencias."}/>;
   const profile = result.teacherSnapshot;
   const pending = data.merits.filter(m => m.teacherId === teacher.id && m.status === "pendiente").length;
   const outcomeText = {
