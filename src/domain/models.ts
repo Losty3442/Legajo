@@ -1,8 +1,21 @@
 export type Role = "docente" | "legajos" | "comision" | "decanato" | "consejo_facultad" | "consejo_universitario";
-export type Category = "Auxiliar" | "Asociado" | "Principal";
-export type MeritKind = "experiencia" | "titulo" | "maestria" | "doctorado" | "investigacion" | "ponencia" | "participacion" | "ratificacion";
+export const promotionTargets = ["Asociado", "Principal"] as const;
+export const promotionCategories = ["Auxiliar", ...promotionTargets] as const;
+export const teacherCategories = [...promotionCategories, "B"] as const;
+export const vacancyDedications = ["Tiempo completo", "Dedicación exclusiva", "Tiempo parcial"] as const;
+export const teacherDedications = [...vacancyDedications, "B1", "B2"] as const;
+export type Category = typeof promotionCategories[number];
+export const meritKindCodes = ["experiencia", "titulo", "maestria", "doctorado", "investigacion", "ponencia", "participacion", "ratificacion", "bachiller", "capacitacion", "diplomado", "material_ensenanza", "idioma", "organizacion_evento", "proyeccion_social"] as const;
+export type MeritKind = typeof meritKindCodes[number];
 export type ReviewStatus = "pendiente" | "verificado" | "observado";
 export type RequestStatus = "borrador" | "presentada" | "observada" | "evaluada" | "no_presentada" | "propuesta" | "en_facultad" | "en_consejo" | "aprobada" | "denegada";
+export type AcademicRecordKind = "degree" | "title" | "diploma" | "training";
+export interface ReportedAcademicRecord {
+  id: string;
+  kind: AcademicRecordKind;
+  description: string;
+}
+export const sigedSourceUrl = "https://siged.urhunp.com/consulta/";
 export interface Actor {
   role: Role;
   teacherId: string;
@@ -17,12 +30,20 @@ export interface Teacher {
   email: string;
   faculty: string;
   department: string;
-  category: Category;
-  dedication: "Tiempo completo" | "Dedicación exclusiva";
+  category: typeof teacherCategories[number] | null;
+  dedication: typeof teacherDedications[number] | null;
   since: string;
   specialty: string;
   createdAt: string;
   updatedAt: string;
+  importedBackground?: {
+    source: string;
+    degrees: string;
+    titles: string;
+    training: string;
+    checkedOn?: string;
+    records?: ReportedAcademicRecord[];
+  };
 }
 export interface Merit {
   id: string;
@@ -38,6 +59,8 @@ export interface Merit {
   createdAt: string;
   updatedAt: string;
   reviewedBy?: Role;
+  siged?: { recordId: string; checkedOn: string; recordDate?: string };
+  institutionalSource?: { url: string; checkedOn: string; reference: string };
 }
 export interface ApplicationRequest {
   callId: string;
@@ -53,17 +76,20 @@ export interface ApplicationRequest {
 }
 export interface Vacancy {
   id: string;
+  code?: string;
   faculty: string;
   department: string;
   category: Category;
-  dedication: Teacher["dedication"];
+  dedication: typeof vacancyDedications[number];
   available: boolean;
   label: string;
 }
+export const vacancyCode = (vacancy: Vacancy) => vacancy.code ?? vacancy.label.match(/PL-\d+/)?.[0] ?? vacancy.id;
 export type RubricSource = "simulacion" | "oficial";
 export interface Rubric {
   /** RF10 / CUS06 · Identidad y versionado de la rúbrica. El modelo relacional lo refleja en `rubrica`. */
   id?: string;
+  profile?: "unp-concurso-plazas-v1";
   estadoFuente?: RubricSource;
   fuenteNormativa?: string;
   aprobadaEn?: string;
@@ -102,11 +128,14 @@ export interface Requirement {
   detail: string;
 }
 export interface ScoreLine {
+  code?: string;
+  evidenceIds?: string[];
   label: string;
   score: number;
   cap: number;
   detail: string;
 }
+export type CommissionScores = Record<string, { score: number; detail: string; evidenceIds: string[] }>;
 export interface Evaluation {
   callSnapshot?: PromotionCall;
   id: string;
@@ -149,6 +178,7 @@ export interface Workspace {
   proposals: Proposal[];
   revision: number;
   teachers: Teacher[];
+  organizations?: Record<string, string[]>;
   merits: Merit[];
   requests: ApplicationRequest[];
   evaluations: Evaluation[];
@@ -166,7 +196,14 @@ export const kinds: Record<MeritKind, string> = {
   investigacion: "Investigación",
   ponencia: "Ponencia",
   participacion: "Participación académica",
-  ratificacion: "Ratificación"
+  ratificacion: "Ratificación",
+  bachiller: "Grado de bachiller",
+  capacitacion: "Capacitación",
+  diplomado: "Diplomado",
+  material_ensenanza: "Material de enseñanza",
+  idioma: "Certificación de idioma",
+  organizacion_evento: "Organización de evento académico",
+  proyeccion_social: "Actividad de proyección social"
 };
 export const roleNames: Record<Role, string> = {
   docente: "Docente",
@@ -231,7 +268,9 @@ export const catalog: Record<string, string[]> = {
   "Ciencias · Demo": ["Matemática · Demo", "Biología · Demo"],
   "Economía · Demo": ["Economía · Demo"]
 };
-export const nextCategory = (category: Category): Category | undefined => category === "Auxiliar" ? "Asociado" : category === "Asociado" ? "Principal" : undefined;
+export const nextCategory = (category: Teacher["category"]): Category | undefined => category === "Auxiliar" ? "Asociado" : category === "Asociado" ? "Principal" : undefined;
+export const teacherCategoryLabel = (category: Teacher["category"]) =>
+  category === "B" ? "B (contrato)" : category ?? "Por confirmar";
 export const DEMO_RUBRIC: Rubric = {
   version: "DEMO-2026.2",
   estadoFuente: "simulacion",
@@ -324,7 +363,7 @@ export interface AuthUser {
   userId?: string;
   faculty?: string;
   department?: string;
-  category?: Category;
+  category?: Teacher["category"];
   avatarInitials: string;
 }
 

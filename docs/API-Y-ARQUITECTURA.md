@@ -34,12 +34,13 @@ Todos los recursos siguientes usan `/api/v1`. Las lecturas requieren sesión sal
 | POST /applications/:id/submissions | Presentar o reenviar |
 | POST /applications/:id/observations | Devolver con note |
 | GET /applications/:id/evaluation-preview | Calcular requisitos y puntajes en el servidor |
-| POST /applications/:id/evaluations | Cierre inmutable, note e Idempotency-Key obligatorios |
+| POST /applications/:id/evaluations | Cierre inmutable con `note` e `Idempotency-Key`. La rúbrica UNP también requiere `scores`. |
 | GET /evaluations y /evaluations/:id | Resultados e instantáneas conservadas |
 | GET /rubrics/:version | Versión autorizada |
 | POST /rubrics y PATCH /rubrics/:id | Crear / editar borrador |
 | POST /rubrics/:id/approvals | Aprobar e inmovilizar versión |
 | GET /vacancies?faculty=&department=&category= | Plazas autorizadas con filtros |
+| POST /vacancies | Registrar una plaza para asociarla a una convocatoria como Personal de Legajos |
 | GET/POST /calls y PATCH /calls/:id | Consultar, crear y configurar convocatoria |
 | POST /calls/:id/phase | Cerrar recepción o proceso |
 | GET /calls/:id/ranking?vacancyId= | Orden de mérito para personal autorizado |
@@ -62,6 +63,8 @@ Las escrituras requieren `If-Match: <revision>`. La fila `aplicacion_estado` ser
 
 Los cierres requieren `Idempotency-Key`; repetir la misma clave, usuario, ruta y contenido devuelve el resultado anterior incluso con If-Match antiguo. Una clave con contenido distinto produce 409. La evaluación se calcula en el servidor y congela docente, convocatoria, rúbrica y evidencias. Las lecturas agregadas usan una transacción de solo lectura y una instantánea consistente.
 
+Con la rúbrica `unp-concurso-plazas-v1`, el servidor calcula el puntaje del mayor grado verificado y valida el puntaje, sustento y referencias a evidencias por criterio que envía la comisión. El cierre conserva el desglose y los documentos considerados.
+
 Errores: `{code,message,requestId}`. Estados: 401 sesión ausente, 403 permisos/origen, 404 recurso no disponible, 409 revisión/duplicado/idempotencia, 413 tamaño, 422 datos/reglas, 428 cabeceras requeridas y 5xx indisponibilidad o fallo interno. Los errores PostgreSQL no exponen consultas ni secretos. El navegador permite reintentar y nunca vuelve silenciosamente a IndexedDB.
 
 IDs existentes se conservan como texto; registros nuevos usan UUID. Fechas académicas DATE, instantes TIMESTAMPTZ, puntajes NUMERIC, indicadores BOOLEAN e instantáneas JSONB. Cada entidad conserva una proyección DTO JSONB junto a sus columnas relacionales y tablas hijas; no se guarda un workspace completo en una tabla.
@@ -78,6 +81,6 @@ El respaldo original de Chrome de esta PC fue importado conservando 6 docentes, 
 
 ## Componentes y pruebas
 
-`db/schema.pg.ts` describe el esquema Drizzle; `drizzle-pg/0000_legajos.sql` es la migración versionada y verificada por SHA-256. `scripts/setup-postgres.mjs` usa el administrador solo al preparar roles y bases; la aplicación utiliza `legajo_app` y los scripts de migración/respaldo el propietario.
+`db/schema.pg.ts` describe el esquema Drizzle. Los archivos de `drizzle-pg/` llevan versiones y comprobaciones SHA-256. `scripts/setup-postgres.mjs` usa el administrador para preparar roles y bases. La aplicación utiliza `legajo_app` y los scripts de migración y respaldo usan el propietario.
 
 Las 27 pruebas originales siguen disponibles. La suite PostgreSQL usa exclusivamente `legajos_unp_test`, puertos 5183/5184 y `.local/test-data`, con credenciales independientes. Cubre cuentas, sesiones, permisos manipulados, concurrencia, archivos, correcciones, evaluación, propuestas por cada instancia, rúbricas, importación y reversión. Los recorridos de navegador usan Edge y verifican lectura compartida desde Chrome.

@@ -1,10 +1,10 @@
 # Legajo UNP · PostgreSQL local
 
-Aplicación académica de legajos y promoción docente de la Universidad Nacional de Piura. React/Vinext conserva la presentación y la integración de Sites; Express ejecuta las reglas y consulta PostgreSQL mediante `pg` y Drizzle. Funciona únicamente en esta PC.
+Aplicación académica de legajos y promoción docente de la Universidad Nacional de Piura. React/Vinext sirve la interfaz y Express ejecuta las reglas sobre PostgreSQL mediante `pg` y Drizzle. La aplicación escucha en localhost y se puede replicar en otra PC [mediante un USB](docs/INSTALACION-SIN-INTERNET.md).
 
 ## Iniciar y entrar
 
-Requisitos: Node.js 22.13 o superior, PostgreSQL 18 encendido y las dependencias instaladas (`npm.cmd ci`). La preparación e importación inicial de esta PC ya están realizadas.
+Requisitos: Node.js 22.13 o superior, PostgreSQL 18 y las dependencias instaladas (`npm.cmd ci`). Para una instalación nueva o para aplicar las migraciones de una actualización, sigue la [guía de operación de PostgreSQL](docs/OPERACION-POSTGRESQL.md).
 
 ```powershell
 npm.cmd run dev
@@ -19,15 +19,19 @@ npm.cmd start
 
 `Ctrl+C` detiene ambos componentes. También puedes ejecutar `npm.cmd stop` desde esta carpeta. Detén la instancia anterior antes de cambiar entre desarrollo y versión compilada.
 
-Las 13 cuentas iniciales y sus claves individuales están en **`.local/CREDENCIALES-LEGAJO.md`**, privado y excluido de Git. Son cuentas locales de prueba. El servidor verifica la contraseña con scrypt y conserva sesiones de ocho horas mediante cookies HttpOnly/SameSite. El alta de un docente crea su cuenta y muestra la clave inicial una sola vez al personal que lo registró.
+El comando `npm.cmd run db:accounts` genera las cuentas iniciales que falten y sus claves en **`.local/CREDENCIALES-LEGAJO.md`**, excluido de Git. Son cuentas locales de prueba. El servidor verifica la contraseña con scrypt y conserva sesiones de ocho horas mediante cookies HttpOnly/SameSite. El alta de un docente crea su cuenta y muestra la clave inicial una sola vez al personal que lo registró.
 
-## Datos conservados
+## Legajo y evaluación
 
-Base `legajos_unp`, servidor PostgreSQL local, conexión **legajo** de pgAdmin. Si no aparece, actualiza el nodo Databases. Se conservaron 6 docentes, 24 méritos, 4 solicitudes y 24 documentos del perfil **The de Chrome**, origen `http://localhost:5173`.
+- La ficha docente admite la categoría B, las dedicaciones B1/B2 y las clasificaciones pendientes. Los antecedentes de SIGED conservan su procedencia y pueden consultarse desde el legajo.
+- Personal de Legajos registra plazas y las asocia a una convocatoria. Cada convocatoria conserva la versión aprobada de su rúbrica.
+- La rúbrica de simulación `UNP-0210-CU-2015-SIM-v1` toma como referencia la tabla de provisión de plazas docentes. El sistema calcula el mayor grado verificado y la comisión registra y sustenta las calificaciones por criterio. Los cierres conservan la rúbrica, el puntaje y la evidencia utilizada.
 
-Respaldo original: `.local/backups/chrome-legacy-20261110-162412/legajo-chrome-backup.zip`. La copia de los archivos de IndexedDB también está en esa carpeta. El origen permanece intacto. Los documentos activos están en `data/documents`, fuera de `public`, con propietario, versión, tamaño y SHA-256.
+## Datos y migraciones
 
-La rúbrica heredada no tenía una aprobación registrada: se conserva como borrador de simulación. Legajos puede revisarla y aprobarla desde **Rúbrica de ejemplo**. No se inventó una aprobación institucional. Las comisiones son de demostración local.
+PostgreSQL guarda los datos en `legajos_unp`. Los documentos activos se almacenan en `data/documents` con propietario, versión, tamaño y SHA-256. El respaldo del navegador y la validación de la importación inicial están descritos en [Validación de PostgreSQL](docs/VALIDACION-POSTGRESQL.md).
+
+Las migraciones `0001` a `0003` incorporan la clasificación docente, los antecedentes de SIGED y los tipos de evidencia de la rúbrica. Aplica las migraciones pendientes con `npm.cmd run db:setup`. El repositorio incluye el esquema y sus migraciones. Cada instalación conserva sus datos, adjuntos y credenciales en archivos locales.
 
 ## Comandos
 
@@ -60,11 +64,16 @@ Las pruebas PostgreSQL reinician exclusivamente `legajos_unp_test` y comprueban 
 - [API implementada](docs/API-Y-ARQUITECTURA.md)
 - [Resultados de validación PostgreSQL](docs/VALIDACION-POSTGRESQL.md)
 - [Operación, preparación y recuperación](docs/OPERACION-POSTGRESQL.md)
+- [Instalación sin internet desde un USB](docs/INSTALACION-SIN-INTERNET.md)
+- [Guía de sustentación](docs/GUIA-SUSTENTACION-ACTUALIZADA.md)
+- [Análisis del sistema v4](docs/Analisis_legajo_promocion_UNP_v4.pdf)
+- [Modelo v4 de Rational Rose](docs/SISTEMA_DE_LEGAJOS_COMPLETO_ORDENADO_v4.mdl)
 - [Diagrama PostgreSQL completo · PlantUML](docs/diagramas/postgresql-legajos-unp.puml)
 - [Diagrama renderizado · SVG](docs/diagramas/postgresql-legajos-unp.svg)
-- `db/schema.pg.ts` y `drizzle-pg/0000_legajos.sql`: 35 tablas del dominio, cuatro auxiliares y control de migraciones.
+- [Vistas relacionales v4 · PlantUML](docs/diagramas/postgresql-legajos-unp-v4.puml)
+- `db/schema.pg.ts` y `drizzle-pg/` describen 35 tablas del dominio, cuatro auxiliares y el control de migraciones.
 - `db/schema.ts` y `drizzle/`: esquema SQLite/D1 conservado como referencia e integración de Sites; no se usa para la persistencia local activa.
 
 Cada comando escribe solo las filas afectadas y su auditoría dentro de una transacción. PostgreSQL protege los históricos, las rúbricas aprobadas, la categoría inmediata superior y la unicidad de propuestas por plaza. Los conflictos de revisión devuelven HTTP 409 y los cierres admiten reintentos idempotentes.
 
-Los datos, reglas y decisiones son una simulación académica; no conceden ascensos ni acreditan designaciones institucionales. No hay publicación en Internet ni integración institucional OIDC. El MCP PostgreSQL sigue siendo de solo lectura.
+Los datos, reglas y decisiones corresponden a una simulación académica. El despliegue y la autenticación funcionan de forma local. El MCP PostgreSQL tiene acceso de solo lectura.

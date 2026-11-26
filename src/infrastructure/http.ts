@@ -1,5 +1,5 @@
-import type { Actor, AuthUser, DocumentFile, Evaluation, Experience, PromotionCall, Workspace } from "../domain/models";
-import type { MeritInput, RubricInput, TeacherInput } from "../application/service";
+import type { Actor, AuthUser, CommissionScores, DocumentFile, Evaluation, Experience, PromotionCall, Workspace } from "../domain/models";
+import type { MeritInput, RubricInput, TeacherInput, VacancyInput } from "../application/service";
 
 export class HttpError extends Error{constructor(public status:number,public code:string,message:string){super(message);}}
 export class LegajoHttpClient{
@@ -28,9 +28,10 @@ export class LegajoHttpClient{
   submit(_actor:Actor,id:string){return this.mutate(`/applications/${encodeURIComponent(id)}/submissions`,"POST");}
   observeRequest(_actor:Actor,id:string,note:string){return this.mutate(`/applications/${encodeURIComponent(id)}/observations`,"POST",{note});}
   evaluationPreview(id:string){return this.json<Omit<Evaluation,"id"|"note">>(`/applications/${encodeURIComponent(id)}/evaluation-preview`);}
-  closeEvaluation(_actor:Actor,id:string,note:string){return this.mutate<string>(`/applications/${encodeURIComponent(id)}/evaluations`,"POST",{note},true);}
+  closeEvaluation(_actor:Actor,id:string,note:string,scores?:CommissionScores){return this.mutate<string>(`/applications/${encodeURIComponent(id)}/evaluations`,"POST",{note,scores},true);}
   saveRubric(_actor:Actor,input:RubricInput,id?:string){return this.mutate<string>(id?`/rubrics/${encodeURIComponent(id)}`:"/rubrics",id?"PATCH":"POST",input);}
   approveRubric(_actor:Actor,id:string){return this.mutate(`/rubrics/${encodeURIComponent(id)}/approvals`,"POST");}
+  createVacancy(_actor:Actor,input:VacancyInput){return this.mutate<string>("/vacancies","POST",input);}
   saveCall(_actor:Actor,input:Pick<PromotionCall,"name"|"startsOn"|"endsOn"|"vacancyIds">&{rubricId?:string},id?:string){return this.mutate<string>(id?`/calls/${encodeURIComponent(id)}`:"/calls",id?"PATCH":"POST",input);}
   advanceCall(_actor:Actor,id:string){return this.mutate(`/calls/${encodeURIComponent(id)}/phase`,"POST");}
   saveExperience(_actor:Actor,teacherId:string,input:Omit<Experience,"id"|"teacherId"|"updatedAt">,id?:string){return this.mutate(`/teachers/${encodeURIComponent(teacherId)}/experiences`+(id?`/${encodeURIComponent(id)}`:""),id?"PATCH":"POST",input);}

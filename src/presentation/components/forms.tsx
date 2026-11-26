@@ -8,8 +8,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { legajoService } from "../../composition";
 import { teacherSchema, meritSchema } from "../../application/service";
-import { catalog, kinds, nextCategory } from "../../domain/models";
-import type { Teacher, Merit, ApplicationRequest, Category } from "../../domain/models";
+import { catalog, kinds, nextCategory, teacherCategories, teacherCategoryLabel, teacherDedications } from "../../domain/models";
+import type { Teacher, Merit, ApplicationRequest } from "../../domain/models";
 import { useWorkspace } from "../provider";
 import { Field, FilterSelect, RecordDialog, EvidencePreview } from "./common";
 const today = () => new Date().toISOString().slice(0, 10);
@@ -22,15 +22,20 @@ export function TeacherForm({
 }) {
   const {
     actor,
+    data,
     busy,
     execute
   } = useWorkspace();
   const [dirty, setDirty] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
-  const [faculty, setFaculty] = useState(teacher?.faculty ?? Object.keys(catalog)[0]);
-  const [department, setDepartment] = useState(teacher?.department ?? catalog[faculty][0]);
-  const [category, setCategory] = useState(teacher?.category ?? "Auxiliar");
-  const [dedication, setDedication] = useState(teacher?.dedication ?? "Tiempo completo");
+  const organizations = { ...(data?.organizations ?? catalog) };
+  if (teacher && !organizations[teacher.faculty]?.includes(teacher.department)) {
+    organizations[teacher.faculty] = [...(organizations[teacher.faculty] ?? []), teacher.department];
+  }
+  const [faculty, setFaculty] = useState(teacher?.faculty ?? Object.keys(organizations)[0] ?? "");
+  const [department, setDepartment] = useState(teacher?.department ?? organizations[faculty]?.[0] ?? "");
+  const [category, setCategory] = useState(teacher ? teacher.category ?? "por-confirmar" : "Auxiliar");
+  const [dedication, setDedication] = useState(teacher ? teacher.dedication ?? "por-confirmar" : "Tiempo completo");
   async function save(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const fields = Object.fromEntries(new FormData(e.currentTarget));
@@ -38,8 +43,8 @@ export function TeacherForm({
       ...fields,
       faculty,
       department,
-      category,
-      dedication
+      category: category === "por-confirmar" ? null : category,
+      dedication: dedication === "por-confirmar" ? null : dedication
     });
     if (!parsed.success) {
       setErrors(Object.fromEntries(parsed.error.issues.map(i => [i.path[0], i.message])));
@@ -48,36 +53,36 @@ export function TeacherForm({
     setErrors({});
     if (await execute(() => legajoService.saveTeacher(actor, parsed.data, teacher?.id), "Ficha docente guardada")) onClose();
   }
-  return <RecordDialog open onClose={onClose} dirty={dirty} title={teacher ? "Editar ficha docente" : "Registrar docente"} description="Usa datos ficticios para esta demostración."><form onSubmit={save} onChange={() => setDirty(true)} className="form-stack">
+  return <RecordDialog open onClose={onClose} dirty={dirty} title={teacher ? "Editar ficha docente" : "Registrar docente"} description="Registra los datos de la ficha y su adscripción académica."><form onSubmit={save} onChange={() => setDirty(true)} className="form-stack">
    <Field name="name" label="Nombres y apellidos" defaultValue={teacher?.name} error={errors.name} required autoFocus placeholder="Ej. Valeria Ríos Mendoza" />
    <div className="form-grid"><Field name="email" label="Correo electrónico" type="email" defaultValue={teacher?.email} error={errors.email} required placeholder="docente@ejemplo.test" /><Field name="specialty" label="Especialidad" defaultValue={teacher?.specialty} error={errors.specialty} required /></div>
    <div className="form-grid"><div className="field"><Label>Facultad</Label><FilterSelect label="Facultad del docente" value={faculty} onChange={v => {
             setFaculty(v);
-            setDepartment(catalog[v][0]);
+            setDepartment(organizations[v]?.[0] ?? "");
             setDirty(true);
-          }} options={Object.keys(catalog).map(v => ({
+          }} options={Object.keys(organizations).map(v => ({
             value: v,
             label: v
           }))} /></div><div className="field"><Label>Departamento</Label><FilterSelect label="Departamento del docente" value={department} onChange={v => {
             setDepartment(v);
             setDirty(true);
-          }} options={catalog[faculty].map(v => ({
+          }} options={(organizations[faculty] ?? []).map(v => ({
             value: v,
             label: v
           }))} /></div></div>
    <div className="form-grid"><div className="field"><Label>Categoría actual</Label><FilterSelect label="Categoría actual" value={category} onChange={v => {
-            setCategory(v as Category);
+            setCategory(v);
             setDirty(true);
-          }} options={["Auxiliar", "Asociado", "Principal"].map(v => ({
+          }} options={[...teacherCategories.map(v => ({
+            value: v,
+            label: teacherCategoryLabel(v)
+          })), {value: "por-confirmar", label: "Por confirmar"}]} /></div><div className="field"><Label>Dedicación</Label><FilterSelect label="Dedicación" value={dedication} onChange={v => {
+            setDedication(v);
+            setDirty(true);
+          }} options={[...teacherDedications.map(v => ({
             value: v,
             label: v
-          }))} /></div><div className="field"><Label>Dedicación</Label><FilterSelect label="Dedicación" value={dedication} onChange={v => {
-            setDedication(v as Teacher["dedication"]);
-            setDirty(true);
-          }} options={["Tiempo completo", "Dedicación exclusiva"].map(v => ({
-            value: v,
-            label: v
-          }))} /></div></div>
+          })), {value: "por-confirmar", label: "Por confirmar"}]} /></div></div>
    <Field name="since" label="Inicio en la categoría actual" type="date" max={today()} defaultValue={teacher?.since} error={errors.since} required />
    <div className="form-footer"><span>Los cambios quedarán en el historial.</span><Button type="submit" disabled={busy}>{busy && <Loader2 className="animate-spin" />}Guardar docente</Button></div>
  </form></RecordDialog>;

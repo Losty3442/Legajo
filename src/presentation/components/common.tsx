@@ -88,7 +88,8 @@ export function FilterSelect({
   value,
   onChange,
   options,
-  id
+  id,
+  disabled
 }: {
   label: string;
   value: string;
@@ -98,8 +99,9 @@ export function FilterSelect({
     label: string;
   }[];
   id?: string;
+  disabled?: boolean;
 }) {
-  return <Select value={value} onValueChange={onChange}><SelectTrigger id={id} aria-label={label} className="filter-select"><SelectValue placeholder={label} /></SelectTrigger><SelectContent>{options.map(o => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}</SelectContent></Select>;
+  return <Select value={value} onValueChange={onChange} disabled={disabled}><SelectTrigger id={id} aria-label={label} className="filter-select"><SelectValue placeholder={label} /></SelectTrigger><SelectContent>{options.map(o => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}</SelectContent></Select>;
 }
 export function Field({
   name,
@@ -143,7 +145,7 @@ export function Score({
   value: number;
   threshold?: number;
 }) {
-  return <div className="score-line"><div><b>{value}</b><span> / 100 puntos</span></div><Progress value={value} aria-label={"Puntaje " + value + " de 100"} /><small>Umbral de ejemplo: {threshold} puntos</small></div>;
+  return <div className="score-line"><div><b>{value}</b><span> / 100 puntos</span></div><Progress value={value} aria-label={"Puntaje " + value + " de 100"} /><small>Umbral de referencia: {threshold} puntos</small></div>;
 }
 export function SectionTitle({
   title,
@@ -242,7 +244,7 @@ export function EvidencePreview({
       if (url) URL.revokeObjectURL(url);
     };
   }, [actor, fileId]);
-  return <Dialog open onOpenChange={v => !v && onClose()}><DialogContent className="preview-dialog"><DialogHeader><DialogTitle>{file?.name ?? "Evidencia documental"}</DialogTitle><DialogDescription>Documento de la demostración local.</DialogDescription></DialogHeader>{error ? <div role="alert" className="error-box">{error}</div> : file ? <><div className="document-preview">{file.type === "application/pdf" ? <iframe title={file.name} src={file.url} /> : <Image src={file.url} alt={file.name} width={1000} height={1000} unoptimized />}</div><a href={file.url} download={file.name} className="text-link"><FileText size={16} />Descargar documento</a></> : <Loading />}</DialogContent></Dialog>;
+  return <Dialog open onOpenChange={v => !v && onClose()}><DialogContent className="preview-dialog"><DialogHeader><DialogTitle>{file?.name ?? "Evidencia documental"}</DialogTitle><DialogDescription>Vista previa del documento asociado al legajo.</DialogDescription></DialogHeader>{error ? <div role="alert" className="error-box">{error}</div> : file ? <><div className="document-preview">{file.type === "application/pdf" ? <iframe title={file.name} src={file.url} /> : <Image src={file.url} alt={file.name} width={1000} height={1000} unoptimized />}</div><a href={file.url} download={file.name} className="text-link"><FileText size={16} />Descargar documento</a></> : <Loading />}</DialogContent></Dialog>;
 }
 export function RequirementRow({
   label,

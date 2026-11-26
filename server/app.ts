@@ -70,7 +70,21 @@ export function createApp(proxyFrontend=true){
   app.get("/api/v1/teachers",async(req,res)=>{const d=await readWorkspace(req);const search=String(req.query.search??"").toLocaleLowerCase();const filtered=d.teachers.filter(t=>(!search||`${t.name} ${t.code} ${t.email}`.toLocaleLowerCase().includes(search))&&(!req.query.faculty||t.faculty===req.query.faculty)&&(!req.query.department||t.department===req.query.department));const start=req.query.cursor?Math.max(0,filtered.findIndex(t=>t.id===req.query.cursor)+1):0;const limit=Math.max(1,Math.min(100,Number(req.query.limit)||50));const teachers=filtered.slice(start,start+limit);res.json({teachers,nextCursor:start+limit<filtered.length?teachers.at(-1)?.id:null,total:filtered.length});});
   app.get("/api/v1/teachers/:id/dossier",async(req,res)=>{const d=await readWorkspace(req),id=parameter(req,"id");requireThat(d.teachers.some(t=>t.id===id),"Legajo no disponible.",404,"NOT_FOUND");res.json({teacher:d.teachers.find(t=>t.id===id),merits:d.merits.filter(m=>m.teacherId===id),experiences:d.experiences.filter(e=>e.teacherId===id)});});
   app.get("/api/v1/files/:id",async(req,res)=>{
-    const client=await pool.connect();try{const store=new PgStore(client,auth(req).actor);const full=await store.read();requireThat(full,"Datos no disponibles.",503,"SETUP_REQUIRED");const doc=await(await store.service(full)).document(auth(req).actor,parameter(req,"id"));res.setHeader("Content-Type",doc.type);res.setHeader("Content-Disposition",`inline; filename*=UTF-8''${encodeURIComponent(doc.name)}`);res.setHeader("X-File-Name",encodeURIComponent(doc.name));res.send(Buffer.from(await doc.blob.arrayBuffer()));}finally{client.release();}
+    const id = parameter(req,"id");
+    const actor = auth(req).actor;
+    const client = await pool.connect();
+    try {
+      const store = new PgStore(client,actor);
+      const full = await store.read();
+      requireThat(full,"Datos no disponibles.",503,"SETUP_REQUIRED");
+      const doc = await (await store.service(full)).document(actor,id);
+      res.setHeader("Content-Type",doc.type);
+      res.setHeader("Content-Disposition",`inline; filename*=UTF-8''${encodeURIComponent(doc.name)}`);
+      res.setHeader("X-File-Name",encodeURIComponent(doc.name));
+      res.send(Buffer.from(await doc.blob.arrayBuffer()));
+    } finally {
+      client.release();
+    }
   });
   app.get("/api/v1/evaluations/:id",async(req,res)=>{const d=await readWorkspace(req);const value=d.evaluations.find(e=>e.id===parameter(req,"id"));requireThat(value,"Evaluación no disponible.",404,"NOT_FOUND");res.json(value);});
   app.get("/api/v1/applications",async(req,res)=>res.json({applications:(await readWorkspace(req)).requests}));
@@ -111,10 +125,11 @@ export function createApp(proxyFrontend=true){
   app.patch("/api/v1/applications/:id",command((s,a,b,r)=>s.saveRequest(a,b.teacherId,b.vacancyId,parameter(r,"id"),b.callId)));
   app.post("/api/v1/applications/:id/submissions",command((s,a,_b,r)=>s.submit(a,parameter(r,"id"))));
   app.post("/api/v1/applications/:id/observations",command((s,a,b,r)=>s.observeRequest(a,parameter(r,"id"),b.note)));
-  app.post("/api/v1/applications/:id/evaluations",command(async(s,a,b,r,client)=>{requireThat(r.get("Idempotency-Key"),"El cierre requiere una clave de reintento.",428,"IDEMPOTENCY_REQUIRED");const request=(await s.snapshot(a)).requests.find(x=>x.id===parameter(r,"id"));requireThat(request,"Solicitud no disponible.",404,"NOT_FOUND");const member=await client.query("SELECT 1 FROM miembro_comision WHERE comision_id=$1 AND usuario_id=$2",[`comision-${request.callId}`,a.userId]);requireThat(member.rowCount,"No perteneces a la comisión de esta convocatoria.",403,"FORBIDDEN");return s.closeEvaluation(a,request.id,b.note);}));
+  app.post("/api/v1/applications/:id/evaluations",command(async(s,a,b,r,client)=>{requireThat(r.get("Idempotency-Key"),"El cierre requiere una clave de reintento.",428,"IDEMPOTENCY_REQUIRED");const request=(await s.snapshot(a)).requests.find(x=>x.id===parameter(r,"id"));requireThat(request,"Solicitud no disponible.",404,"NOT_FOUND");const member=await client.query("SELECT 1 FROM miembro_comision WHERE comision_id=$1 AND usuario_id=$2",[`comision-${request.callId}`,a.userId]);requireThat(member.rowCount,"No perteneces a la comisión de esta convocatoria.",403,"FORBIDDEN");return s.closeEvaluation(a,request.id,b.note,b.scores);}));
   app.post("/api/v1/rubrics",command((s,a,b)=>s.saveRubric(a,b)));
   app.patch("/api/v1/rubrics/:id",command((s,a,b,r)=>s.saveRubric(a,b,parameter(r,"id"))));
   app.post("/api/v1/rubrics/:id/approvals",command((s,a,_b,r)=>s.approveRubric(a,parameter(r,"id"))));
+  app.post("/api/v1/vacancies",command((s,a,b)=>s.createVacancy(a,b)));
   app.post("/api/v1/calls",command((s,a,b)=>s.saveCall(a,b)));
   app.patch("/api/v1/calls/:id",command((s,a,b,r)=>s.saveCall(a,b,parameter(r,"id"))));
   app.post("/api/v1/calls/:id/phase",command((s,a,_b,r)=>s.advanceCall(a,parameter(r,"id"))));

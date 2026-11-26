@@ -1,4 +1,4 @@
-import {readFile} from "node:fs/promises";
+import {readdir,readFile} from "node:fs/promises";
 import {Pool} from "pg";
 import {bootstrapAccounts} from "../server/accounts";
 import {importBackup} from "../server/migration";
@@ -14,7 +14,9 @@ export const testOrigin="http://localhost:5183";
 export async function resetTestDatabase(importData=true){
   const owner=new Pool({connectionString:process.env.TEST_DATABASE_OWNER_URL,max:1});
   try{const check=await owner.query("SELECT current_database() AS name");if(check.rows[0].name!=="legajos_unp_test")throw new Error("Las pruebas destructivas solo admiten legajos_unp_test.");
-    await owner.query("DROP SCHEMA public CASCADE; CREATE SCHEMA public");await owner.query(await readFile("drizzle-pg/0000_legajos.sql","utf8"));
+    await owner.query("DROP SCHEMA public CASCADE; CREATE SCHEMA public");
+    const migrations=(await readdir("drizzle-pg")).filter(name=>/^\d+_.+\.sql$/.test(name)).sort();
+    for (const migration of migrations) await owner.query(await readFile("drizzle-pg/"+migration,"utf8"));
     await owner.query("GRANT USAGE ON SCHEMA public TO legajo_test_app; GRANT SELECT,INSERT,UPDATE,DELETE ON ALL TABLES IN SCHEMA public TO legajo_test_app; GRANT USAGE,SELECT ON ALL SEQUENCES IN SCHEMA public TO legajo_test_app; GRANT UPDATE ON SEQUENCE docente_codigo_seq TO legajo_test_app");
   }finally{await owner.end();}
   const client=await pool.connect();

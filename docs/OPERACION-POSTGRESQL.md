@@ -1,12 +1,12 @@
 # Operación local de Legajo UNP
 
-## Estado de esta PC
+## Base local
 
-La base `legajos_unp` está creada en PostgreSQL 18 (`localhost:5432`) y disponible bajo **legajo** en pgAdmin. La conexión conserva `postgres` como base de mantenimiento y su archivo de contraseñas admite también `legajos_unp`. Actualiza Databases si el árbol estaba abierto.
+La instalación estándar usa la base `legajos_unp` en PostgreSQL 18 (`localhost:5432`). En pgAdmin puedes abrirla bajo tu conexión local. Para la sustentación en una laptop desconectada, consulta la [instalación desde USB](INSTALACION-SIN-INTERNET.md), que usa una instancia independiente en el puerto 55432.
 
 Se importó el respaldo de **Chrome / The / http://localhost:5173**: 6 docentes, 24 méritos, 4 solicitudes, 24 documentos y 0 evaluaciones cerradas en el origen. Se conservaron observaciones, revisiones, trayectoria y auditoría existentes. El respaldo y los archivos originales de IndexedDB permanecen intactos.
 
-La rúbrica heredada carecía de aprobación registrada; se conserva como borrador de simulación. Esa advertencia no significa pérdida de datos. Legajos puede revisar y aprobar la versión para usarla en nuevas convocatorias. Las comisiones locales están identificadas como demostración académica, sin resolución institucional real.
+La rúbrica heredada se conserva como borrador de simulación. Legajos puede revisar y aprobar una versión para usarla en nuevas convocatorias. La rúbrica de simulación basada en la tabla UNP permite registrar las calificaciones sustentadas de la comisión.
 
 ## Uso diario
 
@@ -82,6 +82,16 @@ npm.cmd run db:accounts
 ```
 
 `db:setup` crea `legajo_owner`, `legajo_app`, la base y `.env.local` con claves técnicas aleatorias. No cambia contraseñas de roles existentes sin la configuración previa guardada. La aplicación utiliza solo el usuario limitado. Las migraciones aplicadas llevan SHA-256: crea otra migración al evolucionar el esquema y no modifiques el archivo ya aplicado.
+
+## Actualizar una instalación existente
+
+1. Detén la aplicación y conserva el servicio PostgreSQL en ejecución.
+2. Genera un respaldo con `npm.cmd run db:backup`.
+3. Descarga el código actualizado y ejecuta `npm.cmd ci` si cambiaron las dependencias.
+4. Con la conexión administrativa disponible en el entorno, ejecuta `npm.cmd run db:setup`. La versión v4 aplica `0001`, `0002` y `0003` según el registro en `migracion_esquema`.
+5. Ejecuta `npm.cmd run build` y `npm.cmd start`. Comprueba el acceso y la descarga de un adjunto desde su legajo.
+
+La verificación SHA-256 admite los saltos de línea LF y CRLF para reconocer migraciones aplicadas con Git en Windows. Si cambia el contenido de una migración, crea un archivo SQL nuevo para aplicar la diferencia.
 
 Abre `/migracion` con una cuenta de Legajos desde el navegador de origen. Descarga primero el respaldo, revisa el resumen e importa. Si faltan archivos, hashes o referencias, se detiene la operación. Una importación fallida revierte sus filas y archivos nuevos; el respaldo y el origen se mantienen. Una repetición del mismo paquete devuelve su informe anterior. Una copia diferente nunca sobrescribe automáticamente una base inicializada.
 

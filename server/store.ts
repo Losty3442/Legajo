@@ -2,7 +2,8 @@ import type { PoolClient } from "pg";
 import { drizzle } from "drizzle-orm/node-postgres";
 import { sql } from "drizzle-orm";
 import { isDeepStrictEqual } from "node:util";
-import { approvedDemoRubric, type Actor, type AuthUser, type DocumentFile, type Rubric, type Workspace } from "../src/domain/models";
+import { approvedDemoRubric, vacancyCode, type Actor, type AuthUser, type DocumentFile, type Rubric, type Workspace } from "../src/domain/models";
+import { unpCriteria } from "../src/domain/unp-rubric";
 import type { Repositories } from "../src/application/ports";
 import { LegajoService } from "../src/application/service";
 import { FileStorage } from "./files";
@@ -10,14 +11,15 @@ import { insertAccount, roleIds, technicalIdentity } from "./accounts";
 import { ApiError, newPassword, requireThat, sha256 } from "./security";
 
 type Row=Record<string,unknown>;
-const cats:Record<string,number>={Auxiliar:1,Asociado:2,Principal:3};
-const kinds:Record<string,number>={experiencia:1,titulo:2,maestria:3,doctorado:4,investigacion:5,ponencia:6,participacion:7,ratificacion:8};
+const cats:Record<string,number>={Auxiliar:1,Asociado:2,Principal:3,B:4};
+const dedications={"Tiempo completo":1,"Dedicación exclusiva":2,"Tiempo parcial":3,B1:4,B2:5};
+const kinds:Record<string,number>={experiencia:1,titulo:2,maestria:3,doctorado:4,investigacion:5,ponencia:6,participacion:7,ratificacion:8,bachiller:9,capacitacion:10,diplomado:11,material_ensenanza:12,idioma:13,organizacion_evento:14,proyeccion_social:15};
 const tables={teachers:"docente",merits:"merito",reviews:"revision_merito",experiences:"experiencia_laboral",rubrics:"rubrica",vacancies:"plaza",calls:"convocatoria",requests:"solicitud_promocion",evaluations:"evaluacion",proposals:"propuesta",audit:"auditoria_evento"} as const;
 const equal=(a:unknown,b:unknown)=>JSON.stringify(a)===JSON.stringify(b);
 const uid=(prefix:string,value:string)=>`${prefix}-${sha256(value).slice(0,24)}`;
 export function normalizeWorkspace(input:Workspace):Workspace {
   const d=structuredClone(input); const rubrics=new Map<string,Rubric>();const versions=new Map<string,Rubric>();
-  const rules=(r:Rubric)=>({name:r.name,threshold:r.threshold,degrees:r.degrees,experience:r.experience,research:r.research,talks:r.talks,attendance:r.attendance,requirements:r.requirements});
+  const rules=(r:Rubric)=>({name:r.name,profile:r.profile,threshold:r.threshold,degrees:r.degrees,experience:r.experience,research:r.research,talks:r.talks,attendance:r.attendance,requirements:r.requirements});
   for(const r of [...(d.rubrics??[]),d.rubric,...d.calls.map(c=>c.rubric),...d.evaluations.map(e=>e.rubric)]){
     const version=versions.get(r.version);
     if(!r.id)r.id=version?.id??uid("rub",r.version);
@@ -49,6 +51,22 @@ export class PgStore {
       const records=await db.execute(sql.raw(`SELECT datos FROM "${table}" ORDER BY ${table==="auditoria_evento"?"id DESC":"id"}`));
       result[collection]=records.rows.map(r=>r.datos);
     }
+    const organizations = await this.client.query<{ faculty: string; department: string }>(`
+      SELECT f.nombre AS faculty, d.nombre AS department
+      FROM facultad f
+      JOIN departamento_academico d ON d.facultad_id=f.id
+      WHERE f.activo AND d.activo
+      ORDER BY f.nombre, d.nombre
+    `);
+    if (organizations.rows.some(row => !row.faculty.endsWith(" · Demo"))) {
+      const byFaculty = new Map<string, string[]>();
+      for (const row of organizations.rows) {
+        const departments = byFaculty.get(row.faculty) ?? [];
+        departments.push(row.department);
+        byFaculty.set(row.faculty, departments);
+      }
+      result.organizations = Object.fromEntries(byFaculty);
+    }
     const rubrics=result.rubrics as Rubric[];
     result.rubric=rubrics.find(r=>r.id===state.rubrica_vigente_id);
     requireThat(result.rubric,"No se encuentra la rúbrica vigente.",500,"DATA_INTEGRITY");
@@ -60,8 +78,12 @@ export class PgStore {
     return {id,name:row.nombre_original,type:row.tipo_mime,blob:new Blob([new Uint8Array(bytes)],{type:row.tipo_mime})};
   }
   async organization(faculty:string,department:string){
-    const facultyId=uid("fac",faculty),departmentId=uid("dep",faculty+"/"+department);
-    await this.save("facultad",{id:facultyId,codigo:facultyId,nombre:faculty,activo:true},["id"],true);
+    const facultyRow = (await this.client.query<{ id: string }>("SELECT id FROM facultad WHERE nombre=$1", [faculty])).rows[0];
+    const facultyId = facultyRow?.id ?? uid("fac", faculty);
+    if (!facultyRow) await this.save("facultad",{id:facultyId,codigo:facultyId,nombre:faculty,activo:true},["id"],true);
+    const departmentRow = (await this.client.query<{ id: string }>("SELECT id FROM departamento_academico WHERE facultad_id=$1 AND nombre=$2", [facultyId, department])).rows[0];
+    if (departmentRow) return departmentRow.id;
+    const departmentId=uid("dep",faculty+"/"+department);
     await this.save("departamento_academico",{id:departmentId,facultad_id:facultyId,nombre:department,activo:true},["id"],true);
     return departmentId;
   }
@@ -71,17 +93,27 @@ export class PgStore {
     const changed=<T extends {id?:string}>(values:T[],old:T[]|undefined)=>{const map=beforeIds(old);return values.filter(x=>!equal(x,map.get(x.id)));};
     const at=new Date().toISOString();const actorId=this.actor.userId!;
     const oldTeachers=beforeIds(before?.teachers);
+    const existingDossiers = await this.client.query<{ docente_id: string; id: string }>("SELECT docente_id, id FROM legajo");
+    const dossierIds = new Map(existingDossiers.rows.map(row => [row.docente_id, row.id]));
     for(const t of changed(d.teachers,before?.teachers)){
       const department=await this.organization(t.faculty,t.department);
       let user=(await this.client.query("SELECT id FROM usuario WHERE datos->>'teacherId'=$1 AND activo=true LIMIT 1",[t.id])).rows[0]?.id;
       if(!user){
         const id=`docente-${t.id}`,password=newPassword();
-        const account:AuthUser={id,userId:id,teacherId:t.id,name:t.name,email:t.email,role:"docente",avatarInitials:t.name.split(" ").slice(0,2).map(x=>x[0]).join("")};
+        const account:AuthUser={id,userId:id,teacherId:t.id,name:t.name,email:t.email,role:"docente",category:t.category,avatarInitials:t.name.split(" ").slice(0,2).map(x=>x[0]).join("")};
         await insertAccount(this.client,account,password);this.newCredentials.push({email:t.email,password});user=id;
       }
       if(!oldTeachers.has(t.id)&&!importing)t.code="DOC-"+String((await this.client.query("SELECT nextval('docente_codigo_seq') AS n")).rows[0].n).padStart(3,"0");
-      await this.save("docente",{id:t.id,usuario_id:user,codigo:t.code,nombre_completo:t.name,nombres:null,apellidos:null,email:t.email,departamento_id:department,categoria_id:cats[t.category],dedicacion_id:t.dedication==="Tiempo completo"?1:2,fecha_categoria:t.since,especialidad:t.specialty,activo:true,version:d.revision+1,creado_en:t.createdAt,actualizado_en:t.updatedAt,datos:t});
-      await this.save("legajo",{id:`legajo-${t.id}`,docente_id:t.id,fecha_apertura:t.createdAt.slice(0,10),creado_en:t.createdAt},["id"],true);
+      const nameFields=oldTeachers.get(t.id)?.name===t.name ? {} : {nombres:null,apellidos:null};
+      await this.save("docente",{id:t.id,usuario_id:user,codigo:t.code,nombre_completo:t.name,...nameFields,email:t.email,departamento_id:department,categoria_id:t.category===null?null:cats[t.category],dedicacion_id:t.dedication===null?null:dedications[t.dedication],fecha_categoria:t.since,especialidad:t.specialty,activo:true,version:d.revision+1,creado_en:t.createdAt,actualizado_en:t.updatedAt,datos:t});
+      if (oldTeachers.get(t.id)?.category!==t.category) {
+        await this.client.query("UPDATE usuario SET datos=datos || jsonb_build_object('category',$2::text) WHERE id=$1 AND datos->>'role'='docente'",[user,t.category]);
+      }
+      if (!dossierIds.has(t.id)) {
+        const dossierId = `legajo-${t.id}`;
+        await this.save("legajo",{id:dossierId,docente_id:t.id,fecha_apertura:t.createdAt.slice(0,10),creado_en:t.createdAt},["id"],true);
+        dossierIds.set(t.id,dossierId);
+      }
     }
     const evidenceOwners=new Map<string,string>();const replacements=new Map<string,string>();
     const allMerits=[...d.merits,...d.evaluations.flatMap(e=>e.evidenceSnapshot),...d.reviews.flatMap(r=>[r.before,r.after])];
@@ -96,14 +128,14 @@ export class PgStore {
         const stored=await this.files.put(file);
         const version=prior?(await this.client.query("SELECT version FROM documento WHERE id=$1",[prior])).rows[0]?.version+1:1;
         const uploader=importing?await technicalIdentity(this.client,undefined):actorId;
-        await this.save("documento",{id,legajo_id:`legajo-${owner}`,subido_por:uploader,nombre_original:file.name,tipo_mime:file.type,tamano_bytes:stored.size,hash_sha256:stored.hash,clave_almacenamiento:stored.key,version,reemplaza_a:prior??null,subido_en:at},["id"],true);
+        await this.save("documento",{id,legajo_id:dossierIds.get(owner),subido_por:uploader,nombre_original:file.name,tipo_mime:file.type,tamano_bytes:stored.size,hash_sha256:stored.hash,clave_almacenamiento:stored.key,version,reemplaza_a:prior??null,subido_en:at},["id"],true);
         pending.delete(id);count++;
       }requireThat(count>0,"No se pudo reconstruir la cadena de documentos.");
     }
     for(const m of changed(d.merits,before?.merits)){
       const last=d.reviews.find(r=>r.meritId===m.id&&r.after.status===m.status);
       const reviewer=m.status==="pendiente"?null:await technicalIdentity(this.client,last?.reviewer.id,m.reviewedBy??"legajos");
-      await this.save("merito",{id:m.id,legajo_id:`legajo-${m.teacherId}`,tipo_merito_id:kinds[m.kind],titulo:m.title,institucion:m.institution,fecha_merito:m.date,documento_id:m.fileId,estado_revision:m.status,observacion:m.observation||null,revisado_por:reviewer,revisado_en:reviewer?m.updatedAt:null,version:d.revision+1,creado_en:m.createdAt,actualizado_en:m.updatedAt,datos:m});
+      await this.save("merito",{id:m.id,legajo_id:dossierIds.get(m.teacherId),tipo_merito_id:kinds[m.kind],titulo:m.title,institucion:m.institution,fecha_merito:m.date,documento_id:m.fileId,estado_revision:m.status,observacion:m.observation||null,revisado_por:reviewer,revisado_en:reviewer?m.updatedAt:null,version:d.revision+1,creado_en:m.createdAt,actualizado_en:m.updatedAt,datos:m});
     }
     for(const r of changed(d.reviews,before?.reviews)){
       const reviewer=await technicalIdentity(this.client,r.reviewer.id,r.reviewer.role);
@@ -111,19 +143,21 @@ export class PgStore {
     }
     for(const e of changed(d.experiences,before?.experiences)){
       const merit=d.merits.find(m=>m.id===e.evidenceId);requireThat(merit,"La experiencia no tiene mérito de respaldo.");
-      await this.save("experiencia_laboral",{id:e.id,legajo_id:`legajo-${e.teacherId}`,institucion:e.institution,cargo:e.position,fecha_inicio:e.startsOn,fecha_fin:e.endsOn??null,documento_id:merit.fileId,actualizado_en:e.updatedAt,datos:e});
+      await this.save("experiencia_laboral",{id:e.id,legajo_id:dossierIds.get(e.teacherId),institucion:e.institution,cargo:e.position,fecha_inicio:e.startsOn,fecha_fin:e.endsOn??null,documento_id:merit.fileId,actualizado_en:e.updatedAt,datos:e});
     }
     for(const r of changed(d.rubrics??[],before?.rubrics)){
       const existing=(await this.client.query("SELECT aprobada_en FROM rubrica WHERE id=$1",[r.id])).rows[0];
       if(existing?.aprobada_en)throw new ApiError(409,"RUBRIC_IMMUTABLE","La rúbrica aprobada no se puede modificar.");
       const by=importing?await technicalIdentity(this.client,r.aprobadaPor):actorId;
       await this.save("rubrica",{id:r.id,version:r.version,nombre:r.name,umbral:r.threshold,puntaje_maximo:100,estado_fuente:r.estadoFuente??"simulacion",fuente_normativa:r.fuenteNormativa??null,aprobada_en:null,creada_por:by,creada_en:r.createdAt??at,datos:r});
-      const specs=[['grado_maestria','Grado académico',3,r.degrees.maestria,r.degrees.maestria],['grado_doctorado','Grado académico',4,r.degrees.doctorado,r.degrees.doctorado],['antiguedad','Tiempo en categoría',null,r.experience.perYear,r.experience.max],['investigacion','Investigaciones',5,r.research.unit,r.research.max],['ponencia','Ponencias',6,r.talks.unit,r.talks.max],['participacion','Participaciones',7,r.attendance.unit,r.attendance.max]];
+      const specs=r.profile === "unp-concurso-plazas-v1"
+        ? unpCriteria.map(criterion => [criterion.code,criterion.label,null,0,criterion.cap] as const)
+        : [['grado_maestria','Grado académico',3,r.degrees.maestria,r.degrees.maestria],['grado_doctorado','Grado académico',4,r.degrees.doctorado,r.degrees.doctorado],['antiguedad','Tiempo en categoría',null,r.experience.perYear,r.experience.max],['investigacion','Investigaciones',5,r.research.unit,r.research.max],['ponencia','Ponencias',6,r.talks.unit,r.talks.max],['participacion','Participaciones',7,r.attendance.unit,r.attendance.max]];
       for(const [code,name,kind,points,cap]of specs)await this.save("rubrica_criterio",{id:`${r.id}-${code}`,rubrica_id:r.id,codigo:code,nombre:name,tipo_merito_id:kind,puntos_por_unidad:points,tope:cap,fuente_referencia:r.fuenteNormativa||"Supuesto didáctico de simulación.",estado_fuente:r.estadoFuente??"simulacion"});
       for(const [category,rule]of Object.entries(r.requirements??{}))await this.save("rubrica_requisito",{id:`${r.id}-${category}`,rubrica_id:r.id,categoria_destino_id:cats[category],grado_minimo_id:kinds[rule.degree],anios_minimos:rule.years,investigaciones_minimas:rule.research,exige_ratificacion:rule.ratification,fuente_referencia:r.fuenteNormativa||"Supuesto didáctico de simulación."});
       if(r.aprobadaEn)await this.client.query("UPDATE rubrica SET aprobada_en=$2 WHERE id=$1",[r.id,r.aprobadaEn]);
     }
-    for(const v of changed(d.vacancies,before?.vacancies))await this.save("plaza",{id:v.id,codigo:v.label.match(/PL-\d+/)?.[0]??v.id,etiqueta:v.label,departamento_id:await this.organization(v.faculty,v.department),categoria_id:cats[v.category],dedicacion_id:v.dedication==="Tiempo completo"?1:2,habilitada:v.available,datos:v});
+    for(const v of changed(d.vacancies,before?.vacancies))await this.save("plaza",{id:v.id,codigo:vacancyCode(v),etiqueta:v.label,departamento_id:await this.organization(v.faculty,v.department),categoria_id:cats[v.category],dedicacion_id:dedications[v.dedication],habilitada:v.available,datos:v});
     for(const c of changed(d.calls,before?.calls)){
       const existing=(await this.client.query("SELECT codigo FROM convocatoria WHERE id=$1",[c.id])).rows[0];
       const code=existing?.codigo??`CON-${String((await this.client.query("SELECT nextval('convocatoria_codigo_seq') AS n")).rows[0].n).padStart(6,"0")}`;
@@ -150,7 +184,7 @@ export class PgStore {
       const request=d.requests.find(r=>r.id===e.requestId)!;
       await this.save("evaluacion",{id:e.id,solicitud_id:e.requestId,rubrica_id:e.rubric.id,comision_id:`comision-${request.callId}`,evaluador_id:evaluator,puntaje_total:e.score,umbral_aplicado:e.rubric.threshold,plaza_disponible:e.vacancyMet,resultado:e.outcome,fundamento:e.note,clave_idempotencia:e.id,instantanea_docente:e.teacherSnapshot,instantanea_plaza:e.vacancySnapshot??null,instantanea_convocatoria:e.callSnapshot??d.calls.find(c=>c.id===request.callId),cerrada_en:e.createdAt,datos:e},["id"],true);
       const codes=[e.evidenceSnapshot.some(m=>m.kind==='doctorado')?'grado_doctorado':'grado_maestria','antiguedad','investigacion','ponencia','participacion'];
-      for(const [i,line]of e.breakdown.entries())await this.save("evaluacion_criterio",{id:`${e.id}-criterio-${i}`,evaluacion_id:e.id,rubrica_criterio_id:`${e.rubric.id}-${codes[i]}`,etiqueta:line.label,puntaje:line.score,tope:line.cap,detalle:line.detail},["id"],true);
+      for(const [i,line]of e.breakdown.entries())await this.save("evaluacion_criterio",{id:`${e.id}-criterio-${i}`,evaluacion_id:e.id,rubrica_criterio_id:`${e.rubric.id}-${line.code??codes[i]}`,etiqueta:line.label,puntaje:line.score,tope:line.cap,detalle:line.detail},["id"],true);
       for(const [i,line]of e.requirements.entries())await this.save("evaluacion_requisito",{id:`${e.id}-requisito-${i}`,evaluacion_id:e.id,etiqueta:line.label,cumple:line.met,detalle:line.detail},["id"],true);
       for(const m of e.evidenceSnapshot){const doc=(await this.client.query("SELECT hash_sha256 FROM documento WHERE id=$1",[m.fileId])).rows[0];requireThat(doc,"Falta un archivo de una evaluación.");await this.save("evaluacion_evidencia",{evaluacion_id:e.id,merito_id:m.id,documento_id:m.fileId,hash_sha256:doc.hash_sha256,estado_revision:m.status},["evaluacion_id","merito_id"],true);}
     }

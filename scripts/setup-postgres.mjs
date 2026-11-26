@@ -41,10 +41,14 @@ try {
   try {
     await client.query("CREATE TABLE IF NOT EXISTS migracion_esquema (nombre text PRIMARY KEY, sha256 text NOT NULL, aplicada_en timestamptz NOT NULL DEFAULT now())");
     for(const file of readdirSync("drizzle-pg").filter(name=>/^\d+_.+\.sql$/.test(name)).sort()){
-      const name=file.slice(0,-4),sql=readFileSync(resolve("drizzle-pg",file),"utf8");
+      const name=file.slice(0,-4),sql=readFileSync(resolve("drizzle-pg",file),"utf8").replace(/\r\n/g,"\n");
       const digest=createHash("sha256").update(sql).digest("hex");
       const prior=await client.query("SELECT sha256 FROM migracion_esquema WHERE nombre=$1",[name]);
-      if(prior.rowCount&&prior.rows[0].sha256!==digest)throw new Error(`La migración aplicada ${name} cambió; crea otra migración.`);
+      if(prior.rowCount&&prior.rows[0].sha256!==digest){
+        // Las instalaciones anteriores podían guardar el SHA-256 de los saltos CRLF.
+        const windowsDigest=createHash("sha256").update(sql.replace(/\n/g,"\r\n")).digest("hex");
+        if(prior.rows[0].sha256!==windowsDigest)throw new Error(`La migración aplicada ${name} cambió; crea otra migración.`);
+      }
       if(!prior.rowCount){
         await client.query("BEGIN");
         try{await client.query(sql);await client.query("INSERT INTO migracion_esquema(nombre,sha256) VALUES($1,$2)",[name,digest]);await client.query("COMMIT");}

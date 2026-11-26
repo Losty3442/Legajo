@@ -1,8 +1,9 @@
 import { z } from "zod";
 import type { Repositories } from "./ports";
-import type { Actor, DocumentFile, Workspace, Identity, PromotionCall, Experience, Rubric } from "../domain/models";
-import { catalog, nextCategory, demoUsers } from "../domain/models";
-import { evaluate } from "../domain/evaluation";
+import type { Actor, CommissionScores, DocumentFile, Workspace, Identity, PromotionCall, Experience, Rubric } from "../domain/models";
+import { catalog, nextCategory, demoUsers, teacherCategories, teacherDedications, meritKindCodes, promotionTargets, vacancyCode, vacancyDedications } from "../domain/models";
+import { evaluate, verifiedForEvaluation } from "../domain/evaluation";
+import { matchesUnpCriterion, unpManualCriteria } from "../domain/unp-rubric";
 import { ranking, rankingPending } from "../domain/promotion";
 import { migrateWorkspace } from "./migrations";
 export const teacherSchema = z.object({
@@ -11,12 +12,20 @@ export const teacherSchema = z.object({
   faculty: z.string().min(1),
   department: z.string().min(1),
   specialty: z.string().trim().min(3, "Indica la especialidad."),
-  category: z.enum(["Auxiliar", "Asociado", "Principal"]),
-  dedication: z.enum(["Tiempo completo", "Dedicación exclusiva"]),
+  category: z.enum(teacherCategories).nullable(),
+  dedication: z.enum(teacherDedications).nullable(),
   since: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Selecciona una fecha.")
 });
+const vacancySchema = z.object({
+  code: z.string().trim().min(1, "Escribe el código de la plaza.").toUpperCase(),
+  faculty: z.string().min(1, "Selecciona una facultad."),
+  department: z.string().min(1, "Selecciona un departamento académico."),
+  category: z.enum(promotionTargets),
+  dedication: z.enum(vacancyDedications)
+});
+export type VacancyInput = z.input<typeof vacancySchema>;
 export const meritSchema = z.object({
-  kind: z.enum(["experiencia", "titulo", "maestria", "doctorado", "investigacion", "ponencia", "participacion", "ratificacion"]),
+  kind: z.enum(meritKindCodes),
   title: z.string().trim().min(4, "Describe el mérito con al menos 4 caracteres."),
   institution: z.string().trim().min(3, "Indica la institución emisora."),
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Selecciona una fecha.")
@@ -45,6 +54,11 @@ export const rubricSchema = z.object({
   requirements: z.object({ Asociado: rubricLevelSchema, Principal: rubricLevelSchema })
 });
 export type RubricInput = z.infer<typeof rubricSchema>;
+const commissionScoresSchema = z.record(z.object({
+  score: z.number().min(0).multipleOf(0.01),
+  detail: z.string().trim().min(1, "Indica el fundamento de cada calificación.").max(400),
+  evidenceIds: z.array(z.string().min(1)).max(100),
+}));
 function rubricSources(input: RubricInput): NonNullable<Rubric["sources"]> {
   const reference = input.fuenteNormativa?.trim() || "Supuesto didáctico de simulación; sin validación normativa.";
   return ["Grado académico", "Tiempo en categoría", "Investigaciones", "Ponencias", "Participaciones", "Requisitos", "Umbral"]
@@ -109,7 +123,7 @@ export class LegajoService {
     const before = structuredClone(data);
     fn(data);
     const changes: NonNullable<Workspace["audit"][number]["changes"]> = [];
-    for (const collection of ["teachers", "merits", "requests", "evaluations", "calls", "experiences", "proposals", "reviews", "rubrics"] as const) {
+    for (const collection of ["teachers", "merits", "requests", "evaluations", "calls", "experiences", "proposals", "reviews", "rubrics", "vacancies"] as const) {
       for (const record of data[collection] ?? []) {
         const old = (before[collection] ?? []).find(r => r.id === record.id);
         if (JSON.stringify(old) !== JSON.stringify(record)) changes.push({
@@ -147,15 +161,16 @@ export class LegajoService {
   async saveTeacher(actor: Actor, input: TeacherInput, id?: string) {
     ensure(actor.role === "legajos", "Solo personal de legajos puede editar docentes.");
     const parsed = teacherSchema.parse(input);
-    ensure(catalog[parsed.faculty]?.includes(parsed.department), "El departamento debe pertenecer a la facultad.");
     ensure(realDate(parsed.since) && parsed.since <= this.now().slice(0, 10), "La fecha debe ser válida y no puede estar en el futuro.");
     const teacherId = id ?? this.uid();
     await this.change(actor, teacherId, id ? "Ficha docente actualizada." : "Docente registrado.", d => {
+      const existing = d.teachers.find(t => t.id === id);
+      const currentOrganization = existing?.faculty === parsed.faculty && existing?.department === parsed.department;
+      ensure(currentOrganization || (d.organizations ?? catalog)[parsed.faculty]?.includes(parsed.department), "El departamento debe pertenecer a la facultad.");
       ensure(!d.teachers.some(t => t.email.toLowerCase() === parsed.email.toLowerCase() && t.id !== id), "Ya existe un docente con ese correo.");
       if (id) {
-        const t = d.teachers.find(t => t.id === id);
-        ensure(t, "Docente no encontrado.");
-        Object.assign(t, parsed, {
+        ensure(existing, "Docente no encontrado.");
+        Object.assign(existing, parsed, {
           updatedAt: this.now()
         });
       } else d.teachers.push({
@@ -248,7 +263,9 @@ export class LegajoService {
       const t = d.teachers.find(t => t.id === teacherId);
       ensure(t, "Docente no encontrado.");
       const target = nextCategory(t.category);
-      ensure(target, "La categoría principal no tiene promoción superior en esta demostración.");
+      ensure(target, t.category === "Principal"
+        ? "La categoría principal no tiene promoción superior en esta demostración."
+        : "La ficha necesita una categoría vigente de la carrera docente para preparar la solicitud.");
       const v = d.vacancies.find(v => v.id === vacancyId);
       ensure(v && v.category === target && v.faculty === t.faculty && v.department === t.department && v.dedication === t.dedication, "Selecciona una plaza pertinente al docente.");
       const existing = id ? d.requests.find(r => r.id === id) : undefined;
@@ -310,7 +327,7 @@ export class LegajoService {
       r.updatedAt = this.now();
     });
   }
-  async closeEvaluation(actor: Actor, id: string, note: string) {
+  async closeEvaluation(actor: Actor, id: string, note: string, scores?: CommissionScores) {
     ensure(actor.role === "comision", "Solo la comisión puede cerrar evaluaciones.");
     ensure(note.trim().length >= 8, "Incluye una conclusión de al menos 8 caracteres.");
     const state = await this.repos.workspace.read();
@@ -324,9 +341,27 @@ export class LegajoService {
       const t = d.teachers.find(t => t.id === r.teacherId)!;
       const call = d.calls.find(c => c.id === r.callId);
       ensure(call && call.status !== "cerrada", "La convocatoria no está disponible para evaluar.");
+      const at = this.now();
+      let grades: CommissionScores | undefined;
+      if (call.rubric.profile === "unp-concurso-plazas-v1") {
+        ensure(scores, "Registra la calificación de todos los rubros de la tabla UNP.");
+        grades = commissionScoresSchema.parse(scores);
+        const validEvidence = verifiedForEvaluation(d.merits, t.id, call.rubric, at);
+        ensure(Object.keys(grades).length === unpManualCriteria.length, "Registra la calificación de todos los rubros de la tabla UNP.");
+        for (const criterion of unpManualCriteria) {
+          const { code, label, cap, kinds } = criterion;
+          const grade = grades[code];
+          ensure(grade && grade.score <= cap, `Registra un puntaje válido para ${label} (máximo ${cap}).`);
+          ensure(!kinds || grade.score === 0 || grade.evidenceIds.length, `Selecciona al menos una evidencia verificada para ${label}.`);
+          ensure(new Set(grade.evidenceIds).size === grade.evidenceIds.length && grade.evidenceIds.every(id => validEvidence.some(m => m.id === id && matchesUnpCriterion(criterion, m, r))), `Hay una evidencia inválida o repetida para ${label}.`);
+          if (code === "unp_cargos" || code === "unp_proyeccion") {
+            ensure(grade.score === Math.min(grade.evidenceIds.length, cap), `En ${label} se asigna un punto por actividad acreditada hasta el tope.`);
+          }
+        }
+      }
       evaluationId = this.uid();
       d.evaluations.unshift({
-        ...evaluate(t, d.merits, r, d.vacancies.find(v => v.id === r.vacancyId), call.rubric, this.now()),
+        ...evaluate(t, d.merits, r, d.vacancies.find(v => v.id === r.vacancyId), call.rubric, at, grades),
         callSnapshot: structuredClone(call),
         id: evaluationId,
         note: note.trim()
@@ -388,6 +423,19 @@ export class LegajoService {
       rubric.updatedAt = at;
       d.rubric = structuredClone(rubric);
     });
+  }
+  async createVacancy(actor: Actor, input: VacancyInput) {
+    ensure(actor.role === "legajos", "Solo personal de legajos puede registrar plazas.");
+    const vacancy = vacancySchema.parse(input);
+    const id = this.uid();
+    await this.change(actor, undefined, `Plaza ${vacancy.code} registrada.`, d => {
+      const departments = (d.organizations ?? catalog)[vacancy.faculty];
+      ensure(Array.isArray(departments) && departments.includes(vacancy.department), "El departamento debe pertenecer a la facultad.");
+      ensure(!d.vacancies.some(v => vacancyCode(v).toUpperCase() === vacancy.code), "Ya existe una plaza con ese código.");
+      const label = [vacancy.code, vacancy.department, vacancy.category, vacancy.dedication].join(" · ");
+      d.vacancies.push({ ...vacancy, id, label, available: true });
+    });
+    return id;
   }
   async saveCall(actor: Actor, input: Pick<PromotionCall, "name" | "startsOn" | "endsOn" | "vacancyIds"> & { rubricId?: string }, id?: string) {
     ensure(actor.role === "legajos", "Solo personal de legajos puede gestionar convocatorias.");

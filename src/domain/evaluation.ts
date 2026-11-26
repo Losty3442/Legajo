@@ -1,13 +1,20 @@
-import type { ApplicationRequest, Evaluation, Merit, Rubric, Teacher, Vacancy } from "./models";
+import type { ApplicationRequest, CommissionScores, Evaluation, Merit, Rubric, Teacher, Vacancy } from "./models";
 import { nextCategory } from "./models";
+import { unpBreakdown } from "./unp-rubric";
 export function completedYears(since: string, at: string): number {
   const a = new Date(since + "T12:00:00Z"),
     b = new Date(at);
   if (!Number.isFinite(+a) || !Number.isFinite(+b) || +a > +b) return 0;
   return Math.max(0, b.getUTCFullYear() - a.getUTCFullYear() - (b.getUTCMonth() < a.getUTCMonth() || b.getUTCMonth() === a.getUTCMonth() && b.getUTCDate() < a.getUTCDate() ? 1 : 0));
 }
-export function evaluate(teacher: Teacher, merits: Merit[], request: ApplicationRequest, vacancy: Vacancy | undefined, rubric: Rubric, at: string): Omit<Evaluation, "id" | "note"> {
-  const verified = merits.filter(m => m.teacherId === teacher.id && m.status === "verificado" && m.date <= at.slice(0, 10));
+export function verifiedForEvaluation(merits: Merit[], teacherId: string, rubric: Rubric, at: string) {
+  return merits.filter(m => m.teacherId === teacherId && m.status === "verificado" && m.date <= at.slice(0, 10)
+    && (!(m.siged || m.institutionalSource) || rubric.estadoFuente !== "oficial"));
+}
+
+export function evaluate(teacher: Teacher, merits: Merit[], request: ApplicationRequest, vacancy: Vacancy | undefined, rubric: Rubric, at: string, grades?: CommissionScores): Omit<Evaluation, "id" | "note"> {
+  const verified = verifiedForEvaluation(merits, teacher.id, rubric, at);
+  const unp = rubric.profile === "unp-concurso-plazas-v1";
   const count = (kind: Merit["kind"]) => verified.filter(m => m.kind === kind).length;
   const phd = count("doctorado") > 0,
     master = count("maestria") > 0;
@@ -17,7 +24,7 @@ export function evaluate(teacher: Teacher, merits: Merit[], request: Application
   if (!rules) throw new Error("La rúbrica no tiene requisitos versionados para evaluar.");
   const requiredYears = rules.years;
   const researches = count("investigacion");
-  const breakdown = [{
+  const breakdown = unp ? unpBreakdown(verified, rubric, grades) : [{
     label: "Grado académico",
     score: phd ? rubric.degrees.doctorado : master ? rubric.degrees.maestria : 0,
     cap: Math.max(rubric.degrees.maestria, rubric.degrees.doctorado),
@@ -52,7 +59,7 @@ export function evaluate(teacher: Teacher, merits: Merit[], request: Application
     met: rules.degree === "doctorado" ? phd : master || phd,
     detail: "Grado con documento verificado"
   }, {
-    label: "Antigüedad mínima de ejemplo",
+    label: unp ? "Antigüedad mínima del simulador" : "Antigüedad mínima de ejemplo",
     met: years >= requiredYears,
     detail: years + " de " + requiredYears + " años"
   }, {
@@ -65,8 +72,9 @@ export function evaluate(teacher: Teacher, merits: Merit[], request: Application
     detail: "Documento de ratificación verificado"
   }];
   const vacancyMet = Boolean(vacancy?.available && vacancy.faculty === teacher.faculty && vacancy.department === teacher.department && vacancy.category === request.target && vacancy.dedication === teacher.dedication);
-  const score = breakdown.reduce((a, b) => a + b.score, 0);
-  const qualified = score >= rubric.threshold && requirements.every(r => r.met);
+  const total = breakdown.reduce((a, b) => a + b.score, 0);
+  const score = unp ? Math.round(total * 100) / 100 : total;
+  const qualified = (!unp || !!grades) && score >= rubric.threshold && requirements.every(r => r.met);
   return {
     requestId: request.id,
     teacherId: teacher.id,

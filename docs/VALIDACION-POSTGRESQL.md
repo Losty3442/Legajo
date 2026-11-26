@@ -43,3 +43,10 @@ La interrupción de conexión se probó terminando solo conexiones inactivas del
 - PlantUML generado del catálogo real: **40 tablas y 82 claves foráneas**, incluidas 35 tablas del dominio; SVG renderizado y validado.
 
 Instrucciones: [OPERACION-POSTGRESQL.md](OPERACION-POSTGRESQL.md). Contratos: [API-Y-ARQUITECTURA.md](API-Y-ARQUITECTURA.md).
+
+## Actualización v4 · 25 de noviembre de 2026
+
+- PostgreSQL registró las cuatro migraciones, de `0000` a `0003`. El PlantUML y el SVG se regeneraron con el catálogo actualizado.
+- Pasaron las 27 pruebas de dominio e IndexedDB, las 9 de API PostgreSQL y las 6 de navegador. La suite de PostgreSQL usó `legajos_unp_test` y cubrió el alta de plazas, la rúbrica UNP y la persistencia de evidencias.
+- La comprobación de tipos y la compilación de Vinext y Express terminaron correctamente.
+- `db:backup` generó un respaldo local de 85 docentes, 340 méritos y 340 documentos. `db:verify` confirmó que los registros y archivos coinciden, incluidos sus SHA-256. La copia contiene cero solicitudes y evaluaciones.

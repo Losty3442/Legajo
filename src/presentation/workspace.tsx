@@ -50,7 +50,7 @@ const navigation = [{
   url: "/propuestas", label: "Propuestas y decisiones", icon: FileCheck2
 }, {
   url: "/rubrica",
-  label: "Rúbrica de ejemplo",
+  label: "Rúbricas y requisitos",
   icon: BookOpen
 }];
 function Navigation() {

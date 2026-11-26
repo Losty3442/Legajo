@@ -5,6 +5,7 @@ import {seed,demoPdf} from "../src/infrastructure/seed";
 import {createBackup} from "../src/application/backup";
 import {decodeBackup,importBackup} from "../server/migration";
 import {test,resetTestDatabase,login,mutation,revision,testOrigin} from "./postgres-fixture";
+import {unpManualCriteria, unpSimulationRubric} from "../src/domain/unp-rubric";
 
 test.beforeEach(async()=>resetTestDatabase());
 test("autenticación real, sesión, permisos y aislamiento del docente",async({request})=>{
@@ -65,6 +66,41 @@ test("rúbrica aprobada y detalles bloqueados en PostgreSQL",async({request})=>{
   await expect(pool.query("UPDATE rubrica SET nombre='Otro nombre' WHERE id=$1",[d.rubric.id])).rejects.toMatchObject({code:"23514"});
   await expect(pool.query("INSERT INTO rubrica_criterio(id,rubrica_id,codigo,nombre,puntos_por_unidad,tope,fuente_referencia,estado_fuente) VALUES('mal',$1,'mal','mal',1,1,'x','simulacion')",[d.rubric.id])).rejects.toMatchObject({code:"23514"});
   const fresh={...d.rubric,version:"TEST-EDITABLE",name:"Nueva rúbrica de integración",estadoFuente:"simulacion"};const created=await mutation(request,"/rubrics",fresh);expect(created.ok(),await created.text()).toBeTruthy();const id=(await created.json()).result;expect((await mutation(request,`/rubrics/${id}/approvals`)).ok()).toBeTruthy();
+});
+test("tabla UNP conserva los nueve rubros y exige sustento verificado",async({request})=>{
+  await resetTestDatabase(false);
+  const fixture=seed();
+  const approvedAt=fixture.data.rubric.aprobadaEn;
+  const rubric={...unpSimulationRubric(fixture.data.rubric.requirements!),aprobadaEn:approvedAt,aprobadaPor:"legajos-ana"};
+  fixture.data.rubric=rubric;
+  fixture.data.rubrics=[rubric];
+  fixture.data.calls[0].rubric=rubric;
+  const client=await pool.connect();
+  try {
+    await importBackup(client,{role:"legajos",teacherId:"t1",userId:"legajos-ana"},await createBackup(fixture.data,fixture.documents,"Rúbrica UNP de prueba"));
+  } finally { client.release(); }
+  await login(request,"comision");
+  const preview=await (await request.get("/api/v1/applications/s2/evaluation-preview")).json();
+  expect(preview.score).toBe(23);
+  expect(preview.breakdown).toHaveLength(9);
+
+  const scores=Object.fromEntries(unpManualCriteria.map(criterion=>[criterion.code,{
+    score: criterion.kinds ? 0 : criterion.cap,
+    detail: criterion.kinds ? "Revisión documental del expediente de prueba." : "Acta de calificación de prueba núm. 01.",
+    evidenceIds: [] as string[],
+  }]));
+  scores.unp_investigacion.score=10;
+  const note="Se registra la evaluación de la convocatoria de prueba.";
+  const close=()=>mutation(request,"/applications/s2/evaluations",{note,scores},"post",randomUUID());
+  expect((await close()).status()).toBe(422);
+  scores.unp_investigacion.evidenceIds=fixture.data.merits.filter(m=>m.teacherId==="t2"&&m.kind==="investigacion").map(m=>m.id);
+  const response=await close();
+  expect(response.ok(),await response.text()).toBeTruthy();
+  const {result:id}=await response.json();
+  const closed=await (await request.get(`/api/v1/evaluations/${id}`)).json();
+  expect(closed.score).toBe(48);
+  expect(closed.breakdown.find((line:{code:string})=>line.code==="unp_investigacion").evidenceIds).toEqual(scores.unp_investigacion.evidenceIds);
+  expect((await pool.query("SELECT count(*)::int AS n FROM evaluacion_criterio WHERE evaluacion_id=$1",[id])).rows[0].n).toBe(9);
 });
 test("respaldo repetible, validación y reversión de una importación fallida",async()=>{
   const s=seed();const archive=await createBackup(s.data,s.documents,"fixture de pruebas");const parsed=decodeBackup(archive);expect(parsed.report.documentos).toBe(s.documents.length);

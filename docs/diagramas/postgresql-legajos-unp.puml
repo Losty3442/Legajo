@@ -95,8 +95,8 @@ entity "docente" as docente #E0F2F1 {
   apellidos : text 
   email : text <<NN>>
   departamento_id : text <<FK, NN>>
-  categoria_id : integer <<FK, NN>>
-  dedicacion_id : integer <<FK, NN>>
+  categoria_id : integer <<FK>>
+  dedicacion_id : integer <<FK>>
   fecha_categoria : date <<NN>>
   especialidad : text 
   activo : boolean <<NN>>
@@ -408,8 +408,8 @@ usuario ||--o{ convocatoria : "creada_por"
 convocatoria ||--o{ convocatoria_plaza : "convocatoria_id"
 plaza ||--o{ convocatoria_plaza : "plaza_id"
 facultad ||--o{ departamento_academico : "facultad_id"
-categoria_docente ||--o{ docente : "categoria_id"
-dedicacion ||--o{ docente : "dedicacion_id"
+categoria_docente |o--o{ docente : "categoria_id"
+dedicacion |o--o{ docente : "dedicacion_id"
 departamento_academico ||--o{ docente : "departamento_id"
 usuario |o--o| docente : "usuario_id"
 documento |o--o{ documento : "reemplaza_a"

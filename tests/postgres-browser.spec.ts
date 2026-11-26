@@ -1,5 +1,5 @@
 import {expect,chromium,type Page} from "@playwright/test";
-import {test,resetTestDatabase,credential} from "./postgres-fixture";
+import {test,resetTestDatabase,credential,mutation} from "./postgres-fixture";
 import type {Role} from "../src/domain/models";
 import {demoPdf} from "../src/infrastructure/seed";
 import {readFile} from "node:fs/promises";
@@ -69,6 +69,43 @@ test("trámite completo hasta decisión institucional, visible al docente tras r
   await page.setViewportSize({ width: 390, height: 844 });
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   await page.screenshot({ path: "test-results/proposal-mobile.png", fullPage: true });
+});
+
+test("Legajos registra una plaza y la incorpora a una convocatoria", async ({ page }) => {
+  await navigate(page, "Convocatorias");
+  await page.getByRole("button", { name: "Registrar plaza", exact: true }).click();
+  const dialog = page.getByRole("dialog", { name: "Registrar plaza" });
+  await dialog.getByLabel("Código de la plaza").fill(" conc-101 ");
+  await expect(dialog.getByRole("combobox", { name: "Departamento académico" })).toBeDisabled();
+  for (const [field, option] of [
+    ["Facultad", "Ingeniería · Demo"],
+    ["Departamento académico", "Informática · Demo"],
+    ["Categoría de destino", "Asociado"],
+    ["Dedicación", "Tiempo completo"]
+  ]) {
+    await dialog.getByRole("combobox", { name: field, exact: true }).click();
+    await page.getByRole("option", { name: option, exact: true }).click();
+  }
+  await dialog.getByRole("button", { name: "Guardar plaza", exact: true }).click();
+  await expect(dialog).toHaveCount(0);
+
+  await page.getByRole("button", { name: "Nueva convocatoria", exact: true }).click();
+  await page.getByLabel("Nombre de la convocatoria").fill("Convocatoria con plaza recién registrada");
+  await page.getByLabel("Inicio de presentación").fill("2026-01-01");
+  await page.getByLabel("Fin de presentación").fill("2026-12-31");
+  await page.getByRole("checkbox", { name: /CONC-101/ }).check();
+  await page.getByRole("button", { name: "Guardar convocatoria", exact: true }).click();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await page.reload();
+  const call = page.locator("section").filter({ has: page.getByRole("heading", { name: "Convocatoria con plaza recién registrada" }) });
+  await expect(call.getByText("CONC-101 · Informática · Demo · Asociado · Tiempo completo")).toBeVisible();
+
+  await profile(page, "Comisión evaluadora");
+  const response = await mutation(page.request, "/vacancies", {
+    code: "CONC-102", faculty: "Ingeniería · Demo", department: "Informática · Demo",
+    category: "Asociado", dedication: "Tiempo completo"
+  });
+  expect(response.status()).toBe(403);
 });
 
 test("crea convocatoria y registra título y experiencia con persistencia", async ({ page }) => {
